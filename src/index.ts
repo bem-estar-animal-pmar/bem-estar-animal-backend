@@ -1,5 +1,7 @@
 import { Hono } from "hono"
 import { cors } from "hono/cors"
+import { auth } from "./lib/auth";
+
 
 const app = new Hono();
 
@@ -37,4 +39,13 @@ app.get('/', async (c) => {
 	}
 })
 
-export default app;
+app.on(['POST', 'GET'], '/api/auth/**', (c) => {
+    return auth.handler(c.req.raw);
+});
+
+const server = Bun.serve({
+    fetch: app.fetch,
+    port: Number(process.env.PORT) || 3000
+});
+
+console.log(`Server running on ${server.url}`);
