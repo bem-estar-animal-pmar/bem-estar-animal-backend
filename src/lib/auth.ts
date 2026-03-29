@@ -19,6 +19,18 @@ export const auth = betterAuth({
     emailAndPassword: {
         enabled: true,
     },
+    user: {
+        additionalFields: {
+            role: {
+                type: "string",
+                required: false,
+                defaultValue: "USER",
+                input: false, /* never let the frontend set its own role */	     
+                returned: true
+            }
+        }
+    },
+
     secret: process.env.BETTER_AUTH_SECRET,
     baseURL: process.env.BETTER_AUTH_URL,
     trustedOrigins: getTrustedOrigins(), /* allow next (port 3000) to access this provider */
