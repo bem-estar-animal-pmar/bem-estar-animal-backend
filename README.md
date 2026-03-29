@@ -1,2 +1,11 @@
-# bem-estar-animal-backend
-Backend developed to store data about castration and pets for adoption, it also allow admin users to manage them.
+To install dependencies:
+```sh
+bun install
+```
+
+To run:
+```sh
+bun run dev
+```
+
+open http://localhost:3000
