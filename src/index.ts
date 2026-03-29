@@ -26,8 +26,15 @@ app.use('*', cors({
 }))
 
 
-app.get('/', (c) => {
-  	return c.text(`Hello Hono! ${process.env.NODE_ENV}`)
+import { prisma } from "./lib/prisma"
+
+app.get('/', async (c) => {
+	try {
+		const result = await prisma.$queryRaw`SELECT 1 as status_conexao`;
+		return c.text(`Hello Hono! ${process.env.NODE_ENV} | bd connected succesfully ${result}`);
+	} catch (error) {
+		return c.text(`Hello Hono! ${process.env.NODE_ENV} | bd didn't connect`);
+	}
 })
 
 export default app;
