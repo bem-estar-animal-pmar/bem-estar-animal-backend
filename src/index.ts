@@ -1,7 +1,7 @@
 import { Hono } from "hono"
 import { cors } from "hono/cors"
 import { auth } from "./lib/auth";
-
+import { errorMiddleware } from "./middleware/errorHandler";
 
 const app = new Hono();
 
@@ -27,6 +27,7 @@ app.use('*', cors({
     credentials: true, /* must use credentials true to allow frontend to send cookies */
 }))
 
+app.onError(errorMiddleware());
 
 import { prisma } from "./lib/prisma"
 
