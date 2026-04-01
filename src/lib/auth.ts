@@ -59,6 +59,20 @@ export const userUpdateSchema = z.object({
         .transform((value) => value.replace(/\D/g, "")), // remove dots and dashes to send only numbers to backend
 });
 
+export const passwordUpdateSchema = z.object({
+    newPassword: z.string().trim()
+        .min(8, "Password is expected to have more than 8 characters")
+        .max(60, "Password is expected to have less than 60 characters")
+        .regex(/[A-Z]/, "Password is expected to have at least one uppercase letter")
+        .regex(/[a-z]/, "Password is expected to have at least one lowercase letter")
+        .regex(/[0-9]/, "Password is expected to have at least one number")
+        .regex(/[\W_]/, "Password is expected to have at least one symbol"),
+    token: z.string().trim()
+        .min(1, "Token can't be blank")
+        .max(200, "Token is expected to have less than 200 characters"),
+
+});
+
 const allowedOrigins = process.env.ALLOWED_CORS_URLS ? JSON.parse(process.env.ALLOWED_CORS_URLS) : ["http://localhost:3000"];
 
 const getTrustedOrigins = () => {
@@ -128,14 +142,11 @@ export const auth = betterAuth({
             if (ctx.path === "/sign-up/email") { /* this guarantees this middleware only runs on register by e-mail route */
                 const body = ctx.body;
                 const validation = userRegisterSchema.safeParse(body);
-
                 if (!validation.success) { 
                     throw new APIError("BAD_REQUEST", {
                         message: validation.error.issues[0].message
                     });
                 }
-                /* since we are creating account with email, validation only works if profile is completed,
-                so we set the profileCompleted field as true before sending to the backend */
                 return {
                     context: {
                         ...ctx,
@@ -147,17 +158,25 @@ export const auth = betterAuth({
                     }
                 };
             }
-
-            if (ctx.path === "/update-user") { /* this guarantees this middleware only runs when user tries to udpate their data */
+            
+            if (ctx.path === "/reset-password") { /* this is for the new reset password route, we should parse the same password rules here */
                 const body = ctx.body;
-                const validation = userUpdateSchema.partial().safeParse(body);
-               
+                const validation = passwordUpdateSchema.safeParse(body);
                 if (!validation.success) {
                     throw new APIError("BAD_REQUEST", {
                         message: validation.error.issues[0].message
                     });
                 }
+            }
 
+            if (ctx.path === "/update-user") { /* this guarantees this middleware only runs when user tries to udpate their data */
+                const body = ctx.body;
+                const validation = userUpdateSchema.partial().safeParse(body);
+                if (!validation.success) {
+                    throw new APIError("BAD_REQUEST", {
+                        message: validation.error.issues[0].message
+                    });
+                }
                 return {
                     context: {
                         ...ctx,
