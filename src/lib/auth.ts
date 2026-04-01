@@ -6,6 +6,7 @@ import { prisma } from "./prisma.js";
 import { APIError } from "better-auth";
 import { createAuthMiddleware } from "better-auth/api";
 import { z } from "zod";
+import { cpf } from "cpf-cnpj-validator";
 
 export const userRegisterSchema = z.object({
     password: z.string().trim()
@@ -17,15 +18,45 @@ export const userRegisterSchema = z.object({
         .regex(/[\W_]/, "Password is expected to have at least one symbol"),
     name: z.string().trim()
         .min(1, "Name can't be blank")
-        .max(40, "Name is expected to have less than 40 characters")
-        .regex(/^[A-Za-zÀ-ÖØ-öø-ÿ\s]+$/, "Name must contain only letters")
+        .max(20, "Name is expected to have less than 20 characters")
+        .regex(/^[A-Za-zÀ-ÖØ-öø-ÿ\s]+$/, "Name must contain only letters"),
+    lastName: z.string().trim()
+        .min(1, "Last name can't be blank")
+        .max(40, "Last name is expected to have less than 40 characters")
+        .regex(/^[A-Za-zÀ-ÖØ-öø-ÿ\s]+$/, "Last name must contain only letters"),
+    phone: z.string().trim()
+        .regex(/^\(?\d{2}\)?\s?\d{4,5}-?\d{4}$/, "Invalid phone number format")
+        .transform((value) => value.replace(/\D/g, "")), // remove dots and dashes to send only numbers to backend
+    cpf: z.string().trim()
+        .refine((value) => cpf.isValid(value), {
+            message: "Invalid CPF", 
+        })
+        .transform((val) => val.replace(/\D/g, "")), // remove dots and dashes to send only numbers to backend
+    cep: z.string()
+        .regex(/^\d{5}-?\d{3}$/, "Invalid CEP")
+        .transform((value) => value.replace(/\D/g, "")), // remove dots and dashes to send only numbers to backend
 });
 
 export const userUpdateSchema = z.object({
     name: z.string().trim()
         .min(1, "Name can't be blank")
-        .max(40, "Name is expected to have less than 40 characters")
-        .regex(/^[A-Za-zÀ-ÖØ-öø-ÿ\s]+$/, "Name must contain only letters")
+        .max(20, "Name is expected to have less than 20 characters")
+        .regex(/^[A-Za-zÀ-ÖØ-öø-ÿ\s]+$/, "Name must contain only letters"),
+    lastName: z.string().trim()
+        .min(1, "Last name can't be blank")
+        .max(40, "Last name is expected to have less than 40 characters")
+        .regex(/^[A-Za-zÀ-ÖØ-öø-ÿ\s]+$/, "Last name must contain only letters"),
+    phone: z.string().trim()
+        .regex(/^\(?\d{2}\)?\s?\d{4,5}-?\d{4}$/, "Invalid phone number format")
+        .transform((value) => value.replace(/\D/g, "")), // remove dots and dashes to send only numbers to backend
+    cpf: z.string().trim()
+        .refine((value) => cpf.isValid(value), {
+            message: "Invalid CPF", 
+        })
+        .transform((val) => val.replace(/\D/g, "")), // remove dots and dashes to send only numbers to backend
+    cep: z.string()
+        .regex(/^\d{5}-?\d{3}$/, "Invalid CEP")
+        .transform((value) => value.replace(/\D/g, "")), // remove dots and dashes to send only numbers to backend
 });
 
 const allowedOrigins = process.env.ALLOWED_CORS_URLS ? JSON.parse(process.env.ALLOWED_CORS_URLS) : ["http://localhost:3000"];
@@ -63,10 +94,33 @@ export const auth = betterAuth({
             role: {
                 type: "string",
                 required: false,
-                defaultValue: "USER",
-                input: false, /* never let the frontend set its own role */	     
-                returned: true
-            }
+                defaultValue: "USER", 
+                input: false, /* never let the frontend set its own role */
+            },
+            lastName: {
+                type: "string",
+                required: true, /* enforces validation before hitting the DB */
+                input: true,    /* allows this field to be passed from the signUp client */
+                returned: false
+            },
+            phone: {
+                type: "string",
+                required: true,
+                input: true,
+                returned: false
+            },
+            cpf: {
+                type: "string",
+                required: true,
+                input: true,
+                returned: false
+            },
+            cep: {
+                type: "string",
+                required: true,
+                input: true,
+                returned: false
+            },
         }
     },
     hooks: {

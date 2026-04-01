@@ -29,6 +29,11 @@ model User {
   accounts      Account[]
 
   role          Role      @default(USER)
+  lastName      String
+  cpf           String    /* cpf is unique */
+  cep           String
+  phone         String
+
 
   @@unique([email])
   @@map("user")
