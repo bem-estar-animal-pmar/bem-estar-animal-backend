@@ -1,0 +1,1 @@
+export const PETS_PER_USER_LIMIT = 8;
