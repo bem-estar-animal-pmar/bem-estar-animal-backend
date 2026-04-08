@@ -117,4 +117,5 @@ model Pet {
   
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
+  deletedAt         DateTime?
 }
