@@ -12,6 +12,20 @@ datasource db {
   provider = "postgresql"
 }
 
+// enums for pet
+
+enum Species {
+  DOG
+  CAT
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+// enum for user
+
 enum Role {
   USER
   ADMIN
@@ -34,6 +48,7 @@ model User {
   cep           String
   phone         String
 
+  pets              Pet[]
 
   @@unique([email])
   @@map("user")
@@ -85,4 +100,21 @@ model Verification {
 
   @@index([identifier])
   @@map("verification")
+}
+
+model Pet {
+  id                String             @id @default(cuid())
+  name              String
+  species           Species
+  gender            Gender
+  birthDate         DateTime         
+  breed             String             // 'poodle'
+  weight            Float              // kg
+  coatColor         String             // color
+  
+  ownerId           String
+  owner             User               @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 }
