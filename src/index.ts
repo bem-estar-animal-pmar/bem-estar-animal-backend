@@ -3,6 +3,17 @@ import { cors } from "hono/cors"
 import { auth } from "./lib/auth";
 import { errorMiddleware } from "./middleware/errorHandler";
 
+import petsRouter from "./routes/pets/pets.routes"
+import neuteringRouter from "./routes/neuterings/neuterings.routes"
+
+/* SQL Inject is protected by Prisma */
+/* CORS is configured */
+/* secureHeaders must add */
+/* CSRF and Auth protection configured by better auth */
+/* XSS script injection: zod is cleaning all auth fields, must check other routes */
+/* rate limiter must add on better auth and here */
+/* IDOR protection: must check each route */
+
 const app = new Hono();
 
 const allowedOrigins = process.env.ALLOWED_CORS_URLS ? JSON.parse(process.env.ALLOWED_CORS_URLS) : ["http://localhost:3000"];
@@ -29,15 +40,11 @@ app.use('*', cors({
 
 app.onError(errorMiddleware());
 
-import { prisma } from "./lib/prisma"
+app.route('/api/pets', petsRouter);
+app.route('/api/neuterings', neuteringRouter);
 
-app.get('/', async (c) => {
-	try {
-		const result = await prisma.$queryRaw`SELECT 1 as status_conexao`;
-		return c.text(`Hello Hono! ${process.env.NODE_ENV} | bd connected succesfully ${result}`);
-	} catch (error) {
-		return c.text(`Hello Hono! ${process.env.NODE_ENV} | bd didn't connect`);
-	}
+app.get('/', (c) => {
+	return c.text('Hello Hono!')
 })
 
 app.on(['POST', 'GET'], '/api/auth/**', (c) => {

@@ -1,6 +1,4 @@
 import { prisma } from "../../lib/prisma.js";
-import { z } from 'zod';
-import { createPetSchema, updatePetSchema, listPetsQuerySchema } from "./pets.schema";
 import type { CreatePetInput, UpdatePetInput, ListPetsParamsInput } from "./pets.schema";
 import { HTTPException } from "hono/http-exception";
 import { PETS_PER_USER_LIMIT } from "../../constants/constants.js"
@@ -95,6 +93,8 @@ export const petsService = {
         });
     },
 
+    /* users cannot update several data about pets to prevent them to confuse the clinic owners, when you create, if
+    you made some mistake you should contact them to change */
     async update(petId: string, userId: string, userRole: string, data: UpdatePetInput) {
         const existingPet = await prisma.pet.findUnique({
             where: { id: petId }
@@ -115,6 +115,9 @@ export const petsService = {
         if (userRole !== "ADMIN") {
             delete data.adoptionStatus;
             delete data.chip;
+            delete data.breed;
+            delete data.birthDate;
+            delete data.coatColor;
         }
 
         return await prisma.pet.update({ 
