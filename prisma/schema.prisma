@@ -12,16 +12,21 @@ datasource db {
   provider = "postgresql"
 }
 
-// enums for pet
-
-enum Species {
+enum PetSpecies {
   DOG
   CAT
 }
 
-enum Gender {
+enum PetGender {
   MALE
   FEMALE
+}
+
+enum PetAdoptionStatus { 
+  FOR_ADOPTION
+  ADOPTED
+  HAS_OWNER 
+  STRAY_ANIMAL /* set this if the animal is sent back to the streets */
 }
 
 // enum for user
@@ -47,6 +52,8 @@ model User {
   cpf           String    /* cpf is unique */
   cep           String
   phone         String
+
+  blockedUntil     DateTime? /* in case user does not show for appointment */
 
   pets              Pet[]
 
@@ -102,19 +109,31 @@ model Verification {
   @@map("verification")
 }
 
+/* ----------------- BETTER-AUTH UNRELATED MODELS ----------------- */
+
 model Pet {
   id                String             @id @default(cuid())
   name              String
-  species           Species
-  gender            Gender
+  species           PetSpecies
+  gender            PetGender
   birthDate         DateTime         
-  breed             String             // 'poodle'
+  breed             String             @default("NO_DEFINED_BREED") // 'poodle'
   weight            Float              // kg
   coatColor         String             // color
   
   ownerId           String
-  owner             User               @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  
+  owner             User               @relation(fields: [ownerId], references: [id])
+  isTemporaryHome   Boolean            @default(false) /* set true if pet is for adoption (or owner is a temporary home, like ONGs) */
+
+  adoptionStatus    PetAdoptionStatus  @default(HAS_OWNER) /* STRAY_ANIMAL is set when the pet was sent back to streets,
+  this might happen when the clinic threated a pet or someone who does not own it asked for consultation */
+  chip              String             @default("NO_CHIP") /* chip can only be set by the clinic */
+
+  /*
+  appointments     Appointment[]
+  adoptionRequests AdoptionRequest[]
+  */
+
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   deletedAt         DateTime?
