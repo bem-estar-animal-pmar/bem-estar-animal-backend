@@ -20,6 +20,9 @@ export const petsService = {
                 species: filters?.species, 
                 gender: filters?.gender,
                 deletedAt: null,
+                isTemporaryHome: filters?.isTemporaryHome,
+                adoptionStatus: filters?.adoptionStatus,
+
                 name: filters?.name ? {
                     contains: filters.name,
                     mode: 'insensitive'
@@ -41,6 +44,8 @@ export const petsService = {
                 species: filters?.species, 
                 gender: filters?.gender,
                 deletedAt: userRole === "USER" ? null : undefined,
+                isTemporaryHome: filters?.isTemporaryHome,
+                adoptionStatus: userRole === "ADMIN" ? filters?.adoptionStatus : undefined,
 
                 name: filters?.name ? {
                     contains: filters.name,
@@ -66,7 +71,7 @@ export const petsService = {
         });
     },
 
-    async create(userId: string, data: CreatePetInput) {
+    async create(userId: string, userRole: string, data: CreatePetInput) {
         const petCount = await prisma.pet.count({
             where: {
                 ownerId: userId,
@@ -76,6 +81,10 @@ export const petsService = {
 
         if (petCount >= PETS_PER_USER_LIMIT) {
             throw new HTTPException(400, { message: "Maximum pet limit per user reached" });
+        }
+
+        if (userRole !== "ADMIN") {
+            delete data.chip;
         }
 
         return await prisma.pet.create({
@@ -101,6 +110,11 @@ export const petsService = {
 
         if (existingPet.deletedAt !== null && userRole !== "ADMIN") {
             throw new HTTPException(403, { message: "You are not allowed to update this pet" });
+        }
+
+        if (userRole !== "ADMIN") {
+            delete data.adoptionStatus;
+            delete data.chip;
         }
 
         return await prisma.pet.update({ 

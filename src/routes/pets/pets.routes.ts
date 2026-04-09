@@ -79,7 +79,9 @@ app.post('/', async (ctx) => {
 		throw new HTTPException(400, {  message: "Validation Error. Invalid body", cause: validation.error })
     }
 
-	const newPet = await petsService.create(user.id, validation.data);
+	const role = user.role ?? "USER"; 
+
+	const newPet = await petsService.create(user.id, role, validation.data);
 	return ctx.json(newPet, 201);
 })
 

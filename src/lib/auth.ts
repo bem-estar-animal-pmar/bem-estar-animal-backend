@@ -135,6 +135,12 @@ export const auth = betterAuth({
                 input: true,
                 returned: false
             },
+            blockedUntil: {
+                type: "date",
+                required: false,
+                input: false,     /* user nor admin can set blockedUntil, it automatically goes to true if a status is NO_SHOW */
+                returned: false 
+            },
         }
     },
     hooks: {
