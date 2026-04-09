@@ -29,7 +29,20 @@ enum PetAdoptionStatus {
   STRAY_ANIMAL /* set this if the animal is sent back to the streets */
 }
 
-// enum for user
+enum AnimalSize {
+  SMALL
+  MEDIUM
+  LARGE
+}
+
+enum NeuteringStatus {
+  PENDING
+  AWAITING_EXAMS
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
 
 enum Role {
   USER
@@ -55,8 +68,10 @@ model User {
 
   blockedUntil     DateTime? /* in case user does not show for appointment */
 
+  /* relations */
   pets              Pet[]
-
+  neuteringAppointments NeuteringAppointment[]
+  
   @@unique([email])
   @@map("user")
 }
@@ -134,7 +149,50 @@ model Pet {
   adoptionRequests AdoptionRequest[]
   */
 
+  neuteringAppointments NeuteringAppointment[]
+
+  /* medicalRecords should be also here so it is easier to retrieve data */
+  medicalRecords        MedicalRecord[]
+
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   deletedAt         DateTime?
+}
+
+model NeuteringAppointment {
+  id            String          @id @default(uuid())
+  status        NeuteringStatus @default(PENDING)
+  scheduleDate  DateTime        /* date only uses day, we do not check time */
+  period        String          /* time is based only on period */
+
+  userId        String
+  user          User            @relation(fields: [userId], references: [id])
+
+  petId         String          
+  pet           Pet             @relation(fields: [petId], references: [id])
+
+  medicalRecord MedicalRecord?
+
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+}
+
+model MedicalRecord {
+  id                      String   @id @default(uuid())
+  adminId                 String   // Veterinário
+  notes                   String   @db.Text
+
+  petId                   String   
+  pet                     Pet      @relation(fields: [petId], references: [id])
+  
+  neuteringAppointmentId  String?  @unique
+  neuteringAppointment    NeuteringAppointment? @relation(fields: [neuteringAppointmentId], references: [id])
+
+  // emergencyAppointmentId  String?  @unique
+  // emergencyAppointment    EmergencyAppointment? @relation(fields: [emergencyAppointmentId], references: [id])
+
+  emergencyAppointmentId  String?  @unique
+
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
 }
