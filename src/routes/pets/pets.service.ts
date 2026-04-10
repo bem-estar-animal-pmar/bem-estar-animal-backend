@@ -3,6 +3,9 @@ import type { CreatePetInput, UpdatePetInput, ListPetsParamsInput } from "./pets
 import { HTTPException } from "hono/http-exception";
 import { PETS_PER_USER_LIMIT } from "../../constants/constants.js"
 
+/* admins here should be able to create pets for other users, this is necessary because when a user makes a emergency request, it
+does not comes with a pet */
+
 export const petsService = {
 
     /* admin only */
@@ -70,25 +73,29 @@ export const petsService = {
     },
 
     async create(userId: string, userRole: string, data: CreatePetInput) {
+        /* if the requester is an ADMIN and they sent a ownerId, they are trying to create a pet for another user */
+        const targetOwnerId = (userRole === "ADMIN" && data.ownerId)  ? data.ownerId : userId;
+
         const petCount = await prisma.pet.count({
             where: {
-                ownerId: userId,
+                ownerId: targetOwnerId,
                 deletedAt: null
             }
         });
 
-        if (petCount >= PETS_PER_USER_LIMIT) {
+        if (petCount >= PETS_PER_USER_LIMIT && userRole !== "ADMIN") {
             throw new HTTPException(400, { message: "Maximum pet limit per user reached" });
         }
 
         if (userRole !== "ADMIN") {
             delete data.chip;
+            delete data.ownerId;
         }
 
         return await prisma.pet.create({
             data: {
                 ...data,
-                ownerId: userId
+                ownerId: targetOwnerId
             }
         });
     },

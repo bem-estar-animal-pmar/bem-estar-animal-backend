@@ -6,6 +6,9 @@ import { NEUTERING_QUOTAS, MAX_PETS_PER_MONTH_BY_CPF, MIN_DAY_LIMIT_FOR_NEUTERIN
 /* frontend will receive absolute 00:00 dates in UTC-0 it must not convert the date to local timezone or it may
 change the day and cause bugs */
 
+/* it is ok to not allow admin creates neutering requests for other users, because user is meant to attatch their pet
+to the request on the moment of creation */
+
 export const neuteringService = {
     async create(userId: string, data: CreateNeuteringInput) {
 
