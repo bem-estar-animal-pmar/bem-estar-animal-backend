@@ -6,6 +6,7 @@ import { errorMiddleware } from "./middleware/errorHandler";
 import petsRouter from "./routes/pets/pets.routes"
 import neuteringRouter from "./routes/neuterings/neuterings.routes"
 import emergencyRouter from "./routes/emergencies/emergencies.routes"
+import adoptionRouter from "./routes/adoptions/adoptions.routes"
 
 /* SQL Inject is protected by Prisma */
 /* CORS is configured */
@@ -44,6 +45,7 @@ app.onError(errorMiddleware());
 app.route('/api/pets', petsRouter);
 app.route('/api/neuterings', neuteringRouter);
 app.route('/api/emergencies', emergencyRouter);
+app.route('/api/adoptions', adoptionRouter);
 
 app.get('/', (c) => {
 	return c.text('Hello Hono!')
