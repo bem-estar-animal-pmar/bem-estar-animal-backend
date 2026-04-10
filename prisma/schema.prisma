@@ -12,46 +12,6 @@ datasource db {
   provider = "postgresql"
 }
 
-enum PetSpecies {
-  DOG
-  CAT
-}
-
-enum PetGender {
-  MALE
-  FEMALE
-}
-
-enum PetAdoptionStatus { 
-  FOR_ADOPTION
-  ADOPTED
-  HAS_OWNER 
-  STRAY_ANIMAL /* set this if the animal is sent back to the streets */
-}
-
-enum AnimalSize {
-  SMALL
-  MEDIUM
-  LARGE
-}
-
-enum NeuteringStatus {
-  PENDING
-  AWAITING_EXAMS
-  CONFIRMED
-  COMPLETED
-  CANCELLED
-  NO_SHOW
-}
-
-enum EmergencyStatus {
-  PENDING
-  CONFIRMED
-  COMPLETED
-  CANCELLED
-  NO_SHOW
-}
-
 enum Role {
   USER
   ADMIN
@@ -77,9 +37,10 @@ model User {
   blockedUntil     DateTime? /* in case user does not show for appointment */
 
   /* relations */
-  pets              Pet[]
-  neuteringAppointments NeuteringAppointment[]
-  emergencyAppointments EmergencyAppointment[]
+  pets                     Pet[]
+  neuteringAppointments    NeuteringAppointment[]
+  emergencyAppointments    EmergencyAppointment[]
+  giveupRequests           GiveUpRequest[]
   
   @@unique([email])
   @@map("user")
@@ -135,6 +96,23 @@ model Verification {
 
 /* ----------------- BETTER-AUTH UNRELATED MODELS ----------------- */
 
+enum PetSpecies {
+  DOG
+  CAT
+}
+
+enum PetGender {
+  MALE
+  FEMALE
+}
+
+enum PetAdoptionStatus { 
+  FOR_ADOPTION
+  ADOPTED
+  HAS_OWNER 
+  STRAY_ANIMAL /* set this if the animal is sent back to the streets */
+}
+
 model Pet {
   id                String             @id @default(cuid())
   name              String
@@ -160,6 +138,8 @@ model Pet {
 
   neuteringAppointments NeuteringAppointment[]
   emergencyAppointments EmergencyAppointment[]
+  giveupRequests        GiveUpRequest[]
+  adoptionRequests      AdoptionRequest[]
 
   /* medicalRecords should be also here so it is easier to retrieve data */
   medicalRecords        MedicalRecord[]
@@ -167,6 +147,29 @@ model Pet {
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   deletedAt         DateTime?
+}
+
+enum AnimalSize {
+  SMALL
+  MEDIUM
+  LARGE
+}
+
+enum NeuteringStatus {
+  PENDING
+  AWAITING_EXAMS
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum EmergencyStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
 }
 
 model NeuteringAppointment {
@@ -229,4 +232,40 @@ model MedicalRecord {
 
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
+}
+
+/* ----------------- ADOPTION REQUESTS AND GIVE UP MODELS ----------------- */
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model GiveUpRequest {
+  id        String        @id @default(uuid())
+  status    RequestStatus @default(PENDING)
+  reason    String?       @db.Text
+  
+  petId     String        @unique
+  pet       Pet           @relation(fields: [petId], references: [id])
+  
+  userId    String
+  user      User          @relation(fields: [userId], references: [id])
+
+  createdAt DateTime      @default(now())
+}
+
+model AdoptionRequest {
+  id            String        @id @default(uuid())
+  status        RequestStatus @default(PENDING)
+  
+  petId         String
+  pet           Pet           @relation(fields: [petId], references: [id])
+
+  adopterName   String
+  adopterEmail  String
+  adopterPhone  String
+
+  createdAt     DateTime      @default(now())
 }
