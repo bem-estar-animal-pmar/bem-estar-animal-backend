@@ -44,6 +44,14 @@ enum NeuteringStatus {
   NO_SHOW
 }
 
+enum EmergencyStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
 enum Role {
   USER
   ADMIN
@@ -71,6 +79,7 @@ model User {
   /* relations */
   pets              Pet[]
   neuteringAppointments NeuteringAppointment[]
+  emergencyAppointments EmergencyAppointment[]
   
   @@unique([email])
   @@map("user")
@@ -150,6 +159,7 @@ model Pet {
   */
 
   neuteringAppointments NeuteringAppointment[]
+  emergencyAppointments EmergencyAppointment[]
 
   /* medicalRecords should be also here so it is easier to retrieve data */
   medicalRecords        MedicalRecord[]
@@ -177,6 +187,32 @@ model NeuteringAppointment {
   updatedAt     DateTime        @updatedAt
 }
 
+model EmergencyAppointment {
+  id              String          @id @default(uuid())
+  status          EmergencyStatus @default(PENDING)
+  
+  // O usuário informa apenas o básico, o pet ainda não existe
+  species         PetSpecies
+  size            AnimalSize
+  description     String?         @db.Text
+  
+  /* date and period are defined by the clinic */
+  scheduleDate    DateTime?
+  period          String?
+
+  userId          String          /* user will be temporary home for at least the time of the treatment */
+  user            User            @relation(fields: [userId], references: [id])
+
+  /* after the appointment, the clinic will create a pet (for the user or not, and attatch to the emergency) */
+  resultPetId     String?         @unique
+  resultPet       Pet?            @relation(fields: [resultPetId], references: [id])
+
+  medicalRecord   MedicalRecord?
+
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+}
+
 model MedicalRecord {
   id                      String   @id @default(uuid())
   adminId                 String   // Veterinário
@@ -188,10 +224,8 @@ model MedicalRecord {
   neuteringAppointmentId  String?  @unique
   neuteringAppointment    NeuteringAppointment? @relation(fields: [neuteringAppointmentId], references: [id])
 
-  // emergencyAppointmentId  String?  @unique
-  // emergencyAppointment    EmergencyAppointment? @relation(fields: [emergencyAppointmentId], references: [id])
-
   emergencyAppointmentId  String?  @unique
+  emergencyAppointment    EmergencyAppointment? @relation(fields: [emergencyAppointmentId], references: [id])
 
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
