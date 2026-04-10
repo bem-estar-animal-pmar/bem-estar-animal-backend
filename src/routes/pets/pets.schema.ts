@@ -73,6 +73,12 @@ export const listPetsQuerySchema = z.object({
         .optional(),
 });
 
+export const listPetsForAdoptionQuerySchema = z.object({
+    species: z.enum(["DOG", "CAT"]).optional(),
+    gender: z.enum(["MALE", "FEMALE"]).optional(),
+});
+
 export type CreatePetInput = z.infer<typeof createPetSchema>;
 export type UpdatePetInput = z.infer<typeof updatePetSchema>;
 export type ListPetsParamsInput = z.infer<typeof listPetsQuerySchema>;
+export type ListPetsForAdoptionParamsInput = z.infer<typeof listPetsForAdoptionQuerySchema>;

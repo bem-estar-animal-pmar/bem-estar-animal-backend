@@ -2,9 +2,34 @@ import { Hono } from 'hono'
 import { authMiddleware, type AuthEnv } from '../../middleware/authHandler';
 import { HTTPException } from 'hono/http-exception';
 import { petsService } from "./pets.service";
-import { createPetSchema, listPetsQuerySchema, updatePetSchema } from './pets.schema';
+import { createPetSchema, listPetsQuerySchema, updatePetSchema, listPetsForAdoptionQuerySchema } from './pets.schema';
 
 const app = new Hono<AuthEnv>()
+
+/* public route */
+
+/* @desc list all pets for adoption, so not authenticated users can create adoption requests
+   @route GET https://example.com/api/pets/adoption
+   @access public (any) */
+app.get('/adoption', async (ctx) => {
+	const rawQuery = ctx.req.query();
+	const validation = listPetsForAdoptionQuerySchema.safeParse(rawQuery);
+
+	if (!validation.success) {
+		throw new HTTPException(400, {  message: "Validation Error. Invalid params", cause: validation.error })
+    }
+
+	const query = validation.data;
+
+    const pets = await petsService.listForAdoption({
+		gender: query.gender,
+		species: query.species,
+    });
+
+    return ctx.json(pets, 200);
+});
+
+/* private routes */
 
 app.use('*', authMiddleware);
 

@@ -1,12 +1,41 @@
 import { prisma } from "../../lib/prisma.js";
-import type { CreatePetInput, UpdatePetInput, ListPetsParamsInput } from "./pets.schema";
+import type { CreatePetInput, UpdatePetInput, ListPetsParamsInput, ListPetsForAdoptionParamsInput } from "./pets.schema";
 import { HTTPException } from "hono/http-exception";
 import { PETS_PER_USER_LIMIT } from "../../constants/constants.js"
 
 /* admins here should be able to create pets for other users, this is necessary because when a user makes a emergency request, it
 does not comes with a pet */
 
+/* when aproving a adoption request, the pet status goes to ADOPTED, that means the owner IS NOT the owner of the pet owner field,
+because adoptions can happen to people who do not necessary have an account. If the user has an account and want to be attached 
+to the pet, the admins should do it manually and update the pet status to HAS_OWNER (or maybe create a diff pet/user combo (better)) */
+
 export const petsService = {
+
+    /* public, lists pets for adoption so not logged users can create adopt requests */
+    async listForAdoption(filters?: ListPetsForAdoptionParamsInput) {
+        return await prisma.pet.findMany({
+            where: {
+                species: filters?.species, 
+                gender: filters?.gender,
+                deletedAt: null,
+                adoptionStatus: "FOR_ADOPTION",
+            },
+            select: {
+                id: true,
+                name: true,
+                species: true,
+                gender: true,
+                breed: true,
+                weight: true,
+                coatColor: true,
+                birthDate: true,
+                /* we exclude ownerId, chip, isTemporaryHome, createdAt, updatedAt, deletedAt from the result because
+                the returned data is meant just to be shown to public users */
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+    },
 
     /* admin only */
     async list(userRole: string, filters?: ListPetsParamsInput) {
