@@ -5,9 +5,11 @@ import type { CreateEmergencyInput, ListEmergenciesQueryInput, UpdateEmergencySt
 /* here, admins should not be able to create emergency requests for other users, but they should be able to attach pets from 
 other users (and create pets for other users) to any emergency request because the pet data is added later */
 
+/* they also should be able to create emergency requests for themselves (stray animals they found) */
+
 export const emergencyService = {
     
-    async create(userId: string, data: CreateEmergencyInput) {
+    async create(userId: string, userRole: string, data: CreateEmergencyInput) {
         const user = await prisma.user.findUnique({
             where: { id: userId }
         });
@@ -20,14 +22,16 @@ export const emergencyService = {
             throw new HTTPException(403, { message: `User is blocked until ${user.blockedUntil.toLocaleDateString()}` });
         }
 
+        if (userRole !== "ADMIN") {
+            delete data.scheduleDate;
+            delete data.period;
+        }
+
         return await prisma.emergencyAppointment.create({
             data: {
                 userId,
-                species: data.species,
-                size: data.size,
-                description: data.description,
-                status: "PENDING"
-                /* dont pass scheduleDate, period and resultPetId */
+                status: "PENDING",
+                ...data
             }
         });
     },
@@ -40,9 +44,9 @@ export const emergencyService = {
                 species: filters?.species,
             },
             include: {
-                resultPet: { select: { id: true, name: true } } // Traz o pet caso já tenha sido finalizado
+                resultPet: { select: { id: true, name: true } } /* if it is a completed (or already have pet registered) appointment, we include the pet */
             },
-            orderBy: { createdAt: 'desc' } // Aqui ordenamos por criação, pois os PENDING não têm data agendada
+            orderBy: { createdAt: 'desc' } /* ordered by creation date because pending emergencies does not have scheduleDate */
         });
     },
 
@@ -82,16 +86,18 @@ export const emergencyService = {
         if (!appointment) {
             throw new HTTPException(404, { message: "Emergency appointment not found" });
         }
-
-        // Se a clínica estiver definindo como COMPLETED e enviou um resultPetId, validamos se o pet existe
-        if (data.status === "COMPLETED" && data.resultPetId) {
-            const petExists = await prisma.pet.findUnique({ where: { id: data.resultPetId } });
+        
+        /* if the clinic sent a petId to attach, we should check if it exists */
+        if (data.resultPetId) {
+            const petExists = await prisma.pet.findUnique({ 
+                where: { id: data.resultPetId } 
+            });
             if (!petExists) {
                 throw new HTTPException(404, { message: "Result Pet ID does not exist" });
             }
         }
-
-        // Regra de punição também se aplica a emergências se o usuário acionar e não levar/aparecer
+        
+        /* punishment also happens if the emergency request was NO_SHOW */
         if (data.status === "NO_SHOW" && appointment.status !== "NO_SHOW") {
             const blockUntilDate = new Date();
             blockUntilDate.setDate(blockUntilDate.getDate() + 30);

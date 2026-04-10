@@ -7,6 +7,10 @@ export const createEmergencySchema = z.object({
         .min(10, "Please provide more details about the emergency")
         .max(500, "Description is too long")
         .optional(),
+    scheduleDate: z.coerce.date().transform(d => 
+        new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
+    ).optional(), /* schedule and period are optional because users dont set it, but an admin creating the table can set it */
+    period: z.enum(["MORNING", "AFTERNOON"]).optional(),
 });
 
 export const listEmergenciesQuerySchema = z.object({

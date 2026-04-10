@@ -13,6 +13,7 @@ app.use('*', authMiddleware);
    @access private (USER) */
 app.post('/', async (ctx) => {
     const user = ctx.get("user")!;
+    const role = user.role ?? "USER";
     const body = await ctx.req.json();
     const validation = createEmergencySchema.safeParse(body);
 
@@ -20,12 +21,9 @@ app.post('/', async (ctx) => {
         throw new HTTPException(400, { message: "Validation Error", cause: validation.error });
     }
 
-    const appointment = await emergencyService.create(user.id, validation.data);
+    const appointment = await emergencyService.create(user.id, role, validation.data);
     
-    return ctx.json({
-        data: appointment,
-        message: "Emergency request created. The clinic will review and schedule your appointment."
-    }, 201);
+    return ctx.json(appointment, 201);
 });
 
 /* @desc list current user's emergency requests
@@ -77,7 +75,7 @@ app.patch('/:id/status', async (ctx) => {
     }
 
     const updated = await emergencyService.updateStatus(appointmentId, role, validation.data);
-    return ctx.json({ data: updated, message: "Emergency status updated successfully" }, 200);
+    return ctx.json(updated, 200);
 });
 
 export default app;
