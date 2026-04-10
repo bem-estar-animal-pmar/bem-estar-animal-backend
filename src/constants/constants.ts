@@ -2,7 +2,9 @@ export const PETS_PER_USER_LIMIT = 8;
 
 export const MAX_PETS_PER_MONTH_BY_CPF = 2;
 
-export const MIN_DAY_LIMIT_FOR_NEUTERING_REQUEST = 1;
+export const MIN_DAY_LIMIT_FOR_NEUTERING_REQUEST = 2;
+
+export const MIN_HOUR_LIMIT_FOR_USER_CANCEL_NEUTERING_REQUEST = 48;
 
 export const NEUTERING_QUOTAS = {
     WEEKDAY: { /* segunda à quinta */

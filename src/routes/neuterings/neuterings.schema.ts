@@ -23,5 +23,14 @@ export const updateNeuteringStatusSchema = z.object({ /* only admin can update *
         .optional(),
 });
 
+export const listNeuteringsQuerySchema = z.object({
+    status: z.enum(["PENDING", "AWAITING_EXAMS", "CONFIRMED", "COMPLETED", "CANCELLED", "NO_SHOW"]).optional(),
+    petId: z.string().optional(),
+    userId: z.string().optional(), // Apenas Admin
+    startDate: z.coerce.date().optional(),
+    endDate: z.coerce.date().optional(),
+});
+
 export type CreateNeuteringInput = z.infer<typeof createNeuteringSchema>;
 export type UpdateNeuteringStatusInput = z.infer<typeof updateNeuteringStatusSchema>;
+export type ListNeuteringsQueryInput = z.infer<typeof listNeuteringsQuerySchema>;
