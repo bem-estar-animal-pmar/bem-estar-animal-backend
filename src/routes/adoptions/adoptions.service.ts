@@ -27,7 +27,7 @@ export const adoptionsService = {
             throw new HTTPException(403, { message: "You can only give up your own pet" });
         }
 
-        if (pet.adoptionStatus !== "HAS_OWNER" && pet.adoptionStatus !== "ADOPTED") {
+        if (pet.adoptionStatus === "FOR_ADOPTION" || pet.adoptionStatus === "ADOPTED") {
             throw new HTTPException(400, { message: "Pet is already for adoption" });
         }
 
@@ -64,7 +64,7 @@ export const adoptionsService = {
             throw new HTTPException(404, { message: "Give Up Request not found" });
         }
 
-        /* if aproved, change pet adoption status to 'FOR_ADOPTION' */
+        /* if aproved, change pet adoption status to 'FOR_ADOPTION' and temporaryhome to true */
         if (data.status === "APPROVED" && request.status !== "APPROVED") {
             return await prisma.$transaction([
                 prisma.giveUpRequest.update({

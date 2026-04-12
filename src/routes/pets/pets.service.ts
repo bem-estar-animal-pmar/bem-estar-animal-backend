@@ -117,6 +117,7 @@ export const petsService = {
         if (userRole !== "ADMIN") {
             delete data.chip;
             delete data.ownerId;
+            delete data.isTemporaryHome;
         }
 
         return await prisma.pet.create({
@@ -148,6 +149,7 @@ export const petsService = {
 
         if (userRole !== "ADMIN") {
             delete data.adoptionStatus;
+            delete data.isTemporaryHome;
             delete data.chip;
             delete data.breed;
             delete data.birthDate;
