@@ -1,4 +1,15 @@
 import { z } from "zod";
+import { PetBreed } from "../../../generated/prisma/enums";
+
+const checkDogBreed = (breed: PetBreed) => {
+    return ![ "ABYSSINIAN", "ANGORA", "BENGAL", "BIRMAN", "CHARTREUX", "RUSSIAN_BLUE", "HIMALAYAN", "MAINE_COON", "MUNCHKIN", "SPHYNX", "SIAMESE", "RAGDOLL", "SCOTTISH_FOLD", "AMERICAN_BURMESE", "PERSIAN", "EXOTIC_SHORTHAIR"
+    ].includes(breed);
+}
+
+const checkCatBreed = (breed: PetBreed) => {
+    return [ "MIXED_BREED", "ABYSSINIAN", "ANGORA", "BENGAL", "BIRMAN", "CHARTREUX", "RUSSIAN_BLUE", "HIMALAYAN", "MAINE_COON", "MUNCHKIN", "SPHYNX", "SIAMESE", "RAGDOLL", "SCOTTISH_FOLD", "AMERICAN_BURMESE", "PERSIAN", "EXOTIC_SHORTHAIR"
+    ].includes(breed);
+}
 
 export const createPetSchema = z.object({
     name: z.string()
@@ -6,9 +17,7 @@ export const createPetSchema = z.object({
         .max(28, "Name must be less than 28 characters"),
     species: z.enum(["DOG", "CAT"]),
     gender: z.enum(["MALE", "FEMALE"]),
-    breed: z.string()
-        .min(1, "Breed is required")
-        .max(28, "Breed must be less than 28 characters"),
+    breed: z.enum(PetBreed),
     weight: z.number()
         .positive("Weight must be greater than zero"),
     coatColor: z.string()
@@ -22,14 +31,25 @@ export const createPetSchema = z.object({
         .optional(), /* must add constraint on service to only let admin set chip */
     ownerId: z.string()
         .max(50, "User ID must be less than 50 characters").optional(), /* added for admin creation */
+}).refine((data) => {
+    if (data.species === "DOG") {
+        return checkDogBreed(data.breed);
+    }
+    if (data.species === "CAT") {
+        return checkCatBreed(data.breed);
+    }
+    return true;
+}, {
+  message: "Breed does not match species",
+  path: ["breed"],
 });
 
 export const updatePetSchema = z.object({
     name: z.string()
         .max(28)
         .optional(),
-    breed: z.string()
-        .max(28)
+    species: z.enum(["DOG", "CAT"]),
+    breed: z.enum(PetBreed)
         .optional(),
     weight: z.number()
         .positive()
@@ -50,6 +70,17 @@ export const updatePetSchema = z.object({
         "ADOPTED",
         "STRAY_ANIMAL"
     ]).optional(),
+}).refine((data) => {
+    if (data.species === "DOG" && data.breed) {
+        return checkDogBreed(data.breed);
+    }
+    if (data.species === "CAT" && data.breed) {
+        return checkCatBreed(data.breed);
+    }
+    return true;
+}, {
+  message: "Breed does not match species",
+  path: ["breed"],
 });
 
 export const listPetsQuerySchema = z.object({
@@ -58,8 +89,7 @@ export const listPetsQuerySchema = z.object({
         .optional(),
     species: z.enum(["DOG", "CAT"]).optional(),
     gender: z.enum(["MALE", "FEMALE"]).optional(),
-    breed: z.string()
-        .max(28, "Breed must be less than 28 characters")
+    breed: z.enum(PetBreed)
         .optional(),
     isTemporaryHome: z.coerce.boolean().optional(),
     adoptionStatus: z.enum([

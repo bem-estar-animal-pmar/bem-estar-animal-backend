@@ -52,6 +52,7 @@ app.get('/', (c) => {
 })
 
 app.on(['POST', 'GET'], '/api/auth/**', (c) => {
+    console.log("req")
     return auth.handler(c.req.raw);
 });
 

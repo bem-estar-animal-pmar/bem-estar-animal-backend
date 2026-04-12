@@ -59,8 +59,7 @@ export const petsService = {
                 } : undefined,
 
                 breed: filters?.breed ? {
-                    contains: filters.breed,
-                    mode: 'insensitive'
+                    equals: filters.breed,
                 } : undefined
             },
             orderBy: { createdAt: 'desc' }
@@ -83,8 +82,7 @@ export const petsService = {
                 } : undefined,
                 
                 breed: filters?.breed ? {
-                    contains: filters.breed,
-                    mode: 'insensitive'
+                    equals: filters.breed,
                 } : undefined
             },
             orderBy: { createdAt: 'desc' }
