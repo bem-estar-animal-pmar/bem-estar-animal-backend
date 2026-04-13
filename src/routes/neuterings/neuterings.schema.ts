@@ -8,6 +8,15 @@ export const createNeuteringSchema = z.object({ /* users are allowed to create n
             new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))
         ), /* since we rely in period instead of hours of date, zod will clean up any date the frontend sends to prevent bugs */
     period: z.enum(["MORNING", "AFTERNOON"]),
+    animalFastAccepted: z.coerce.boolean().refine(val => val === true, {
+        message: "You must confirm that your pet will be fasting"
+    }),
+    animalChipAccepted: z.coerce.boolean().refine(val => val === true, {
+        message: "You must agree to have your pet microchipped"
+    }),
+    termsAccepted: z.coerce.boolean().refine(val => val === true, {
+        message: "You must agree that you have read the neutering terms"
+    }),
 });
 
 /* only admins can update a neutering appointment */

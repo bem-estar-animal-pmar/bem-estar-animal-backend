@@ -256,6 +256,11 @@ model NeuteringAppointment {
   petId         String          
   pet           Pet             @relation(fields: [petId], references: [id])
 
+  
+  animalFastAccepted    Boolean   @default(false)
+  animalChipAccepted    Boolean   @default(false)
+  termsAccepted         Boolean   @default(false)
+
   medicalRecord MedicalRecord?
 
   createdAt     DateTime        @default(now())

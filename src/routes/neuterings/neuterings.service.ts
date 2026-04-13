@@ -42,6 +42,11 @@ export const neuteringService = {
             throw new HTTPException(400, { message: "This pet already has an active neutering appointment or is already neutered" });
         }
 
+        if (!data.termsAccepted || !data.animalFastAccepted || !data.animalChipAccepted) {
+            throw new HTTPException(400, { message: "You must agree with all terms and declarations" });
+
+        }
+
         /* admins are allowed to skip any rules for neutering request creation */
         if (user.role === "ADMIN") {
             return await prisma.neuteringAppointment.create({
