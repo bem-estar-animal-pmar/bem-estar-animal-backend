@@ -284,8 +284,12 @@ model EmergencyAppointment {
   user            User            @relation(fields: [userId], references: [id])
 
   /* after the appointment, the clinic will create a pet (for the user or not, and attatch to the emergency) */
-  resultPetId     String?         @unique
-  resultPet       Pet?            @relation(fields: [resultPetId], references: [id])
+  petId     String?         
+  pet       Pet?            @relation(fields: [petId], references: [id])
+
+  temporaryHomeAccepted Boolean   @default(false)
+  animalChipAccepted    Boolean   @default(false)
+  termsAccepted         Boolean   @default(false)
 
   medicalRecord   MedicalRecord?
 

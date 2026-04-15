@@ -27,11 +27,26 @@ export const emergencyService = {
             delete data.period;
         }
 
+        let resultSpecies = data.species;
+        if (data.petId) {
+            const petExists = await prisma.pet.findUnique({ 
+                where: { id: data.petId } 
+            });
+            if (!petExists) {
+                throw new HTTPException(404, { message: "Result Pet ID does not exist" });
+            }
+            if (petExists.ownerId != userId && userRole != "ADMIN") {
+                throw new HTTPException(401, { message: "You are not allowed to create an emergency appointment for this pet" });
+            }
+            resultSpecies = petExists.species; // if user selected a pet pass down the species from the pet to prevent inconsistency
+        }
+
         return await prisma.emergencyAppointment.create({
             data: {
+                ...data,
                 userId,
                 status: "PENDING",
-                ...data
+                species: resultSpecies
             }
         });
     },
@@ -44,7 +59,7 @@ export const emergencyService = {
                 species: filters?.species,
             },
             include: {
-                resultPet: { select: { id: true, name: true } } /* if it is a completed (or already have pet registered) appointment, we include the pet */
+                pet: { select: { id: true, name: true } } /* if it is a completed (or already have pet registered) appointment, we include the pet */
             },
             orderBy: { createdAt: 'desc' } /* ordered by creation date because pending emergencies does not have scheduleDate */
         });
@@ -64,7 +79,7 @@ export const emergencyService = {
             },
             include: {
                 user: { select: { name: true, phone: true, email: true } },
-                resultPet: { select: { id: true, name: true } }
+                pet: { select: { id: true, name: true } }
             },
             orderBy: [
                 { status: 'asc' }, /* gets pending first */
@@ -88,9 +103,9 @@ export const emergencyService = {
         }
         
         /* if the clinic sent a petId to attach, we should check if it exists */
-        if (data.resultPetId) {
+        if (data.petId) {
             const petExists = await prisma.pet.findUnique({ 
-                where: { id: data.resultPetId } 
+                where: { id: data.petId } 
             });
             if (!petExists) {
                 throw new HTTPException(404, { message: "Result Pet ID does not exist" });
