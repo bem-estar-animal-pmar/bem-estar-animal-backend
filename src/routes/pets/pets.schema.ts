@@ -24,8 +24,6 @@ export const createPetSchema = z.object({
         .min(1, "Coat color is required")
         .max(28, "Coat color must be less than 28 characters"),
     birthDate: z.coerce.date(),
-    isTemporaryHome: z.boolean()
-        .optional(),
     chip: z.string()
         .max(50)
         .optional(), /* must add constraint on service to only let admin set chip */
@@ -58,9 +56,6 @@ export const updatePetSchema = z.object({
         .max(28)
         .optional(),
     birthDate: z.coerce.date().optional(),
-    isTemporaryHome: z
-        .boolean()
-        .optional(),
     chip: z.string()
         .max(50)
         .optional(), /* must add constraint on service to only let admin set chip */
@@ -68,6 +63,7 @@ export const updatePetSchema = z.object({
         "HAS_OWNER",
         "FOR_ADOPTION",
         "ADOPTED",
+        "TEMPORARY_HOME",
         "STRAY_ANIMAL"
     ]).optional(),
 }).refine((data) => {
@@ -91,11 +87,11 @@ export const listPetsQuerySchema = z.object({
     gender: z.enum(["MALE", "FEMALE"]).optional(),
     breed: z.enum(PetBreed)
         .optional(),
-    isTemporaryHome: z.coerce.boolean().optional(),
     adoptionStatus: z.enum([
         "HAS_OWNER",
         "FOR_ADOPTION",
         "ADOPTED",
+        "TEMPORARY_HOME",
         "STRAY_ANIMAL"
     ]).optional(),
     userId: z.string() /* admin-only filter */

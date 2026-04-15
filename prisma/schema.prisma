@@ -110,6 +110,7 @@ enum PetAdoptionStatus {
   FOR_ADOPTION
   ADOPTED
   HAS_OWNER 
+  TEMPORARY_HOME
   STRAY_ANIMAL /* set this if the animal is sent back to the streets */
 }
 
@@ -197,16 +198,10 @@ model Pet {
   
   ownerId           String
   owner             User               @relation(fields: [ownerId], references: [id])
-  isTemporaryHome   Boolean            @default(false) /* set true if pet is for adoption (or owner is a temporary home, like ONGs) */
 
   adoptionStatus    PetAdoptionStatus  @default(HAS_OWNER) /* STRAY_ANIMAL is set when the pet was sent back to streets,
   this might happen when the clinic threated a pet or someone who does not own it asked for consultation */
   chip              String             @default("NO_CHIP") /* chip can only be set by the clinic */
-
-  /*
-  appointments     Appointment[]
-  adoptionRequests AdoptionRequest[]
-  */
 
   neuteringAppointments NeuteringAppointment[]
   emergencyAppointments EmergencyAppointment[]

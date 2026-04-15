@@ -30,7 +30,7 @@ export const petsService = {
                 weight: true,
                 coatColor: true,
                 birthDate: true,
-                /* we exclude ownerId, chip, isTemporaryHome, createdAt, updatedAt, deletedAt from the result because
+                /* we exclude ownerId, chip, createdAt, updatedAt, deletedAt from the result because
                 the returned data is meant just to be shown to public users */
             },
             orderBy: { createdAt: 'desc' }
@@ -50,14 +50,11 @@ export const petsService = {
                 species: filters?.species, 
                 gender: filters?.gender,
                 deletedAt: null,
-                isTemporaryHome: filters?.isTemporaryHome,
                 adoptionStatus: filters?.adoptionStatus,
-
                 name: filters?.name ? {
                     contains: filters.name,
                     mode: 'insensitive'
                 } : undefined,
-
                 breed: filters?.breed ? {
                     equals: filters.breed,
                 } : undefined
@@ -73,9 +70,7 @@ export const petsService = {
                 species: filters?.species, 
                 gender: filters?.gender,
                 deletedAt: userRole === "USER" ? null : undefined,
-                isTemporaryHome: filters?.isTemporaryHome,
                 adoptionStatus: userRole === "ADMIN" ? filters?.adoptionStatus : undefined,
-
                 name: filters?.name ? {
                     contains: filters.name,
                     mode: 'insensitive'
@@ -117,7 +112,6 @@ export const petsService = {
         if (userRole !== "ADMIN") {
             delete data.chip;
             delete data.ownerId;
-            delete data.isTemporaryHome;
         }
 
         return await prisma.pet.create({
@@ -149,7 +143,6 @@ export const petsService = {
 
         if (userRole !== "ADMIN") {
             delete data.adoptionStatus;
-            delete data.isTemporaryHome;
             delete data.chip;
             delete data.breed;
             delete data.birthDate;
