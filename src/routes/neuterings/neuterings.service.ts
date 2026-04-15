@@ -1,7 +1,7 @@
 import { prisma } from "../../lib/prisma.js";
 import { HTTPException } from "hono/http-exception";
 import type { CreateNeuteringInput, UpdateNeuteringStatusInput, ListNeuteringsQueryInput } from "./neuterings.schema";
-import { NEUTERING_QUOTAS, MAX_PETS_PER_MONTH_BY_CPF, MIN_DAY_LIMIT_FOR_NEUTERING_REQUEST, MIN_HOUR_LIMIT_FOR_USER_CANCEL_NEUTERING_REQUEST } from "../../constants/constants"
+import { NEUTERING_QUOTAS, MAX_PETS_PER_MONTH_BY_CPF, MIN_DAY_LIMIT_FOR_NEUTERING_REQUEST, MIN_HOUR_LIMIT_FOR_USER_CANCEL_NEUTERING_REQUEST, MIN_PET_AGE_FOR_NEUTERING, MAX_PET_AGE_FOR_NEUTERING, MIN_PET_WEIGHT_FOR_NEUTERING, MAX_PET_WEIGHT_FOR_NEUTERING, BRACHYCEPHALIC_BREEDS } from "../../constants/constants"
 
 /* frontend will receive absolute 00:00 dates in UTC-0 it must not convert the date to local timezone or it may
 change the day and cause bugs */
@@ -45,6 +45,31 @@ export const neuteringService = {
         if (!data.termsAccepted || !data.animalFastAccepted || !data.animalChipAccepted) {
             throw new HTTPException(400, { message: "You must agree with all terms and declarations" });
 
+        }
+
+        /* constraint: only pets between 3 months and 8 years can be neutered */
+        const today = new Date();
+        let ageInMonths = (today.getFullYear() - pet.birthDate.getFullYear()) * 12 + (today.getMonth() - pet.birthDate.getMonth());
+        if (today.getDate() < pet.birthDate.getDate()) {
+            ageInMonths--;
+        }
+
+        if (ageInMonths < MIN_PET_AGE_FOR_NEUTERING || ageInMonths > MAX_PET_AGE_FOR_NEUTERING) {
+            throw new HTTPException(400, { message: "Neutering is only allowed for pets between 3 months and 8 years old" });
+        }
+
+        /* constraint: pets below 3 kg or above 15 kg must do exams */
+        let neuteringStatus = "PENDING";
+
+        if (pet.species === "DOG" && pet.gender === "FEMALE") {
+            if ((pet.weight <= MIN_PET_WEIGHT_FOR_NEUTERING) || pet.weight > MAX_PET_WEIGHT_FOR_NEUTERING) {
+                neuteringStatus = "AWAITING_EXAMS";
+            }
+        }
+
+        /* constraint: brachycephalic pets must do exams */
+        if (pet.breed && BRACHYCEPHALIC_BREEDS.includes(pet.breed)) {
+            neuteringStatus = "AWAITING_EXAMS";
         }
 
         /* admins are allowed to skip any rules for neutering request creation */
