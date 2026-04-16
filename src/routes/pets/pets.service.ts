@@ -170,22 +170,27 @@ export const petsService = {
             throw new HTTPException(404, { message: "Pet not found" });
         }
 
-        /* later on
-        const activeAppointments = await prisma.appointment.count({
+        const activeNeuterings = await prisma.neuteringAppointment.count({
             where: {
-                OR: [
-                    { neutering: { petId: petId } },
-                    { emergency: { petId: petId } }
-                ],
+                petId: petId,
                 status: {
-                    in: ['PENDING', 'AWAITING_CONFIRMATION', 'CONFIRMED']
+                    in: ['PENDING', 'AWAITING_EXAMS', 'CONFIRMED']
                 }
             }
         });
 
-        if (activeAppointments > 0) {
+        const activeEmergencies = await prisma.emergencyAppointment.count({
+            where: {
+                petId: petId,
+                status: {
+                    in: ['PENDING', 'CONFIRMED']
+                }
+            }
+        });
+
+        if (activeNeuterings > 0 || activeEmergencies > 0) {
             throw new HTTPException(403, { message: "You are not allowed to delete pets with future appointments. Please resolve them first"});
-        } */
+        } 
 
         return await prisma.pet.update({
             where: { id: petId },

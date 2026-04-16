@@ -20,6 +20,7 @@ export const createPetSchema = z.object({
     breed: z.enum(PetBreed),
     weight: z.number()
         .positive("Weight must be greater than zero"),
+    size: z.enum(["SMALL", "MEDIUM", "LARGE"]),
     coatColor: z.string()
         .min(1, "Coat color is required")
         .max(28, "Coat color must be less than 28 characters"),
@@ -52,6 +53,7 @@ export const updatePetSchema = z.object({
     weight: z.number()
         .positive()
         .optional(),
+    size: z.enum(["SMALL", "MEDIUM", "LARGE"]),
     coatColor: z.string()
         .max(28)
         .optional(),

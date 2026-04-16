@@ -106,6 +106,12 @@ enum PetGender {
   FEMALE
 }
 
+enum PetSize {
+  SMALL
+  MEDIUM
+  LARGE
+}
+
 enum PetAdoptionStatus { 
   FOR_ADOPTION
   ADOPTED
@@ -194,6 +200,7 @@ model Pet {
   birthDate         DateTime         
   breed             PetBreed             @default(MIXED_BREED) // 'poodle'
   weight            Float              // kg
+  size              PetSize
   coatColor         String             // color
   
   ownerId           String
@@ -214,12 +221,6 @@ model Pet {
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   deletedAt         DateTime?
-}
-
-enum AnimalSize {
-  SMALL
-  MEDIUM
-  LARGE
 }
 
 enum NeuteringStatus {
@@ -265,10 +266,9 @@ model NeuteringAppointment {
 model EmergencyAppointment {
   id              String          @id @default(uuid())
   status          EmergencyStatus @default(PENDING)
-  
-  // O usuário informa apenas o básico, o pet ainda não existe
+
   species         PetSpecies
-  size            AnimalSize
+  size            PetSize
   description     String?         @db.Text
   
   /* date and period are defined by the clinic */
