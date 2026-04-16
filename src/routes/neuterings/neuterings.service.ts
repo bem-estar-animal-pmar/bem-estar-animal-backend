@@ -59,7 +59,7 @@ export const neuteringService = {
         }
 
         /* constraint: pets below 3 kg or above 15 kg must do exams */
-        let neuteringStatus = "PENDING";
+        let neuteringStatus:'PENDING' | 'AWAITING_EXAMS' = "PENDING";
 
         if (pet.species === "DOG" && pet.gender === "FEMALE") {
             if ((pet.weight <= MIN_PET_WEIGHT_FOR_NEUTERING) || pet.weight > MAX_PET_WEIGHT_FOR_NEUTERING) {
@@ -80,7 +80,7 @@ export const neuteringService = {
                     petId: data.petId,
                     scheduleDate: data.scheduleDate,
                     period: data.period,
-                    status: "PENDING"
+                    status: neuteringStatus
                 },
                 include: { /* return pet data so frontend can show on success screen */
                     pet: {
@@ -164,7 +164,7 @@ export const neuteringService = {
                 petId: data.petId,
                 scheduleDate: data.scheduleDate,
                 period: data.period,
-                status: "PENDING"
+                status: neuteringStatus
             },
             include: { /* return pet data so frontend can show on success screen */
                 pet: {
