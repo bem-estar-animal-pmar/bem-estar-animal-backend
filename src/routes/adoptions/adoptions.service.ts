@@ -68,7 +68,7 @@ export const adoptionsService = {
             throw new HTTPException(400, { message: `Cannot cancel a already completed, cancelled or rejected give up request` });
         }
 
-        return await prisma.adoptionRequest.update({
+        return await prisma.giveUpRequest.update({
             where: { id: requestId },
             data: { status: "CANCELLED_BY_USER"}
         });
