@@ -50,6 +50,30 @@ export const adoptionsService = {
         });
     },
 
+    /* user action: cancel own appointment */
+    async cancelGiveUpByUser(requestId: string, userId: string) {
+        const request = await prisma.giveUpRequest.findUnique({ 
+            where: { id: requestId } 
+        });
+
+        if (!request) {
+            throw new HTTPException(404, { message: "Give up request not found" });
+        }
+
+        if (request.userId !== userId) {
+            throw new HTTPException(403, { message: "You can only cancel your own requests" });
+        }
+
+        if (request.status !== "PENDING") {
+            throw new HTTPException(400, { message: `Cannot cancel a already completed, cancelled or rejected give up request` });
+        }
+
+        return await prisma.adoptionRequest.update({
+            where: { id: requestId },
+            data: { status: "CANCELLED_BY_USER"}
+        });
+    },
+
     /* admin only */
     async updateGiveUpStatus(requestId: string, userRole: string, data: UpdateGiveUpStatusInput) {
         if (userRole !== "ADMIN") {
@@ -61,7 +85,7 @@ export const adoptionsService = {
         });
         
         if (!request) {
-            throw new HTTPException(404, { message: "Give Up Request not found" });
+            throw new HTTPException(404, { message: "Give up request not found" });
         }
 
         /* if aproved, change pet adoption status to 'FOR_ADOPTION' and temporaryhome to true */
@@ -75,7 +99,6 @@ export const adoptionsService = {
                     where: { id: request.petId },
                     data: { 
                         adoptionStatus: "FOR_ADOPTION",
-                        isTemporaryHome: true 
                     }
                 })
             ]);
@@ -143,7 +166,6 @@ export const adoptionsService = {
                 where: { id: request.petId },
                 data: { 
                     adoptionStatus: "ADOPTED",
-                    isTemporaryHome: false
                 }
             });
 

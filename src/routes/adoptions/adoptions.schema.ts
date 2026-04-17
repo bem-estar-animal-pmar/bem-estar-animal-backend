@@ -10,10 +10,16 @@ export const createGiveUpSchema = z.object({
         .min(10, "Please provide a longer reason")
         .max(500, "Reason text is too long")
         .optional(),
+    temporaryHomeAccepted: z.coerce.boolean().refine(val => val === true, {
+        message: "You must confirm to be a temporary home during the pet treatment"
+    }),
+    termsAccepted: z.coerce.boolean().refine(val => val === true, {
+        message: "You must agree that you have read the neutering terms"
+    }),
 });
 
 export const updateGiveUpStatusSchema = z.object({
-    status: z.enum(["PENDING", "APPROVED", "REJECTED"]),
+    status: z.enum(["PENDING", "APPROVED", "REJECTED", "CANCELLED_BY_USER"]),
 });
 
 /* adoption request table related schemas */
@@ -33,13 +39,13 @@ export const createAdoptionSchema = z.object({
 });
 
 export const updateAdoptionStatusSchema = z.object({
-    status: z.enum(["PENDING", "APPROVED", "REJECTED"])
+    status: z.enum(["PENDING", "APPROVED", "REJECTED", "CANCELLED_BY_USER"])
 });
 
 // --- QUERIES ---
 
 export const listRequestsQuerySchema = z.object({
-    status: z.enum(["PENDING", "APPROVED", "REJECTED"]).optional(),
+    status: z.enum(["PENDING", "APPROVED", "REJECTED", "CANCELLED_BY_USER"]).optional(),
     petId: z.string().optional(),
     userId: z.string().optional(),
 });

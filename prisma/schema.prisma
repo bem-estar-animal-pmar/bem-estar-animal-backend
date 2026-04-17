@@ -316,6 +316,7 @@ enum RequestStatus {
   PENDING
   APPROVED
   REJECTED
+  CANCELLED_BY_USER
 }
 
 model GiveUpRequest {
@@ -328,6 +329,9 @@ model GiveUpRequest {
   
   userId    String
   user      User          @relation(fields: [userId], references: [id])
+
+  temporaryHomeAccepted Boolean   @default(false)
+  termsAccepted         Boolean   @default(false)
 
   createdAt DateTime      @default(now())
 }

@@ -95,6 +95,17 @@ app.post('/give-up', async (ctx) => {
     return ctx.json({ data: request, message: "Give up request submitted" }, 201);
 });
 
+/* @desc user cancels their own give up request
+   @route PATCH /api/giveup/:id/cancel
+   @access private (USER) */
+app.patch('/give-up/:id/cancel', async (ctx) => {
+    const user = ctx.get("user")!;
+    const requestId = ctx.req.param('id');
+
+    const cancelled = await adoptionsService.cancelGiveUpByUser(requestId, user.id);
+    return ctx.json({ data: cancelled, message: "Give up request cancelled successfully" }, 200);
+});
+
 /* @desc admin updates a give up request (Approve = Pet goes to adoption vitrine)
    @route PATCH /api/adoptions/give-up/:id/status
    @access private (ADMIN) */
