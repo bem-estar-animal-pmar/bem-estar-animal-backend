@@ -19,12 +19,17 @@ export const usersService = {
                         contains: filters.name,
                         mode: 'insensitive' 
                     } : undefined,
-                    cpf: filters.cpf, 
+                    email: filters.email ? {
+                        contains: filters.email,
+                        mode: 'insensitive' 
+                    } : undefined,
                     role: filters.role,
                 },
                 select: {
                     id: true,
                     name: true,
+                    email: true,
+                    phone: true,
                     lastName: true,
                     role: true
                 },
