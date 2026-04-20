@@ -66,16 +66,20 @@ export const emergencyService = {
     },
 
     /* admin only */
-    async list(userRole: string, filters?: ListEmergenciesQueryInput) {
+    async list(userRole: string, filters: ListEmergenciesQueryInput) {
         if (userRole !== "ADMIN") {
             throw new HTTPException(401, { message: "Unauthorized" });
         }
 
-        return await prisma.emergencyAppointment.findMany({
+        const limit = filters.limit;
+        const page = filters.page;
+        const skip = (page - 1) * limit;
+
+        const appointments = await prisma.emergencyAppointment.findMany({
             where: {
-                userId: filters?.userId,
-                status: filters?.status,
-                species: filters?.species,
+                userId: filters.userId,
+                status: filters.status,
+                species: filters.species,
             },
             include: {
                 user: { select: { name: true, phone: true, email: true } },
@@ -84,8 +88,26 @@ export const emergencyService = {
             orderBy: [
                 { status: 'asc' }, /* gets pending first */
                 { createdAt: 'asc' }
-            ]
+            ],
+            skip: skip,
+            take: limit + 1, // O truque N+1
         });
+
+        const hasNextPage = appointments.length > limit;
+
+        if (hasNextPage) {
+            appointments.pop();
+        }
+
+        return {
+            data: appointments,
+            meta: {
+                currentPage: page,
+                itemsPerPage: limit,
+                hasNextPage,
+                hasPrevPage: page > 1
+            }
+        };
     },
 
     /* admin only */

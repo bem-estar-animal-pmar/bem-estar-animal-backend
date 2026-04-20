@@ -38,6 +38,8 @@ export const listNeuteringsQuerySchema = z.object({
     userId: z.string().optional(), // Apenas Admin
     startDate: z.coerce.date().optional(),
     endDate: z.coerce.date().optional(),
+    page: z.coerce.number().int().min(1).default(1),
+    limit: z.coerce.number().int().min(1).max(100).default(20),
 });
 
 export type CreateNeuteringInput = z.infer<typeof createNeuteringSchema>;

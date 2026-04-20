@@ -42,8 +42,8 @@ app.get('/me', async (ctx) => {
     return ctx.json(appointments, 200);
 });
 
-/* @desc list all emergency requests
-   @route GET /api/emergencies
+/* @desc list all emergency requests (with filters and pagination)
+   @route GET /api/emergencies?page=1&limit=20
    @access private (ADMIN) */
 app.get('/', async (ctx) => {
     const user = ctx.get("user")!;

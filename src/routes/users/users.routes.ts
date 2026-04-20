@@ -10,8 +10,8 @@ const app = new Hono<AuthEnv>()
 
 app.use('*', authMiddleware);
 
-/* @desc list all user with filters
-   @route GET https://example.com/api/admin/users/?name=Rex&srole=USER
+/* @desc list all user with filters and pagination
+   @route GET https://example.com/api/admin/users/?role=USER&page=1&limit=20
    @access private (ADMIN) */
 app.get('/', async (ctx) => {
     const user = ctx.get("user")!; /* authMiddle already make sure 'user' exists */
@@ -25,14 +25,11 @@ app.get('/', async (ctx) => {
 
     const query = validation.data;
     const role = user.role ?? "USER"; 
-    /* filters here are used for direct match, not for listing */
-    const users = await usersService.list(role, {
-        id: query.id,
-        role: query.role,
-        cpf: query.cpf,
-    });
+    
+    // Pass the entire sanitized query object to the service
+    const result = await usersService.list(role, query);
 
-    return ctx.json(users, 200);
+    return ctx.json(result, 200);
 });
 
 export default app;

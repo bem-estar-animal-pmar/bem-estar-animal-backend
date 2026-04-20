@@ -30,6 +30,8 @@ export const listEmergenciesQuerySchema = z.object({
         .optional(), /* admin-only */
     species: z.enum(["DOG", "CAT"])
         .optional(),
+    page: z.coerce.number().int().min(1).default(1),
+    limit: z.coerce.number().int().min(1).max(100).default(20),
 });
 
 export const updateEmergencyStatusSchema = z.object({

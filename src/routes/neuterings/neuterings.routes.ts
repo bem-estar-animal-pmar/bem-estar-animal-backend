@@ -24,8 +24,8 @@ app.get('/me', async (ctx) => {
     return ctx.json(appointments, 200);
 });
 
-/* @desc list all neutering appointments (with filters)
-   @route GET /api/neutering
+/* @desc list all neutering appointments (with filters and pagination)
+   @route GET /api/neutering?page=1&limit=20
    @access private (ADMIN) */
 app.get('/', async (ctx) => {
     const user = ctx.get("user")!;

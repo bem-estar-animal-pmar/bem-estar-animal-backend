@@ -193,41 +193,85 @@ export const adoptionsService = {
         });
     },
 
-    /* admin only */
-    async listGiveUps(userRole: string, filters?: ListRequestsQueryInput) {
+    /* admin only*/
+    async listGiveUps(userRole: string, filters: ListRequestsQueryInput) {
         if (userRole !== "ADMIN") {
             throw new HTTPException(401, { message: "Unauthorized" });
         }
         
-        return await prisma.giveUpRequest.findMany({
+        const limit = filters.limit;
+        const page = filters.page;
+        const skip = (page - 1) * limit;
+
+        const requests = await prisma.giveUpRequest.findMany({
             where: {
-                status: filters?.status,
-                petId: filters?.petId,
-                userId: filters?.userId,
+                status: filters.status,
+                petId: filters.petId,
+                userId: filters.userId,
             },
             include: {
                 pet: { select: { name: true, species: true } },
                 user: { select: { name: true, phone: true } }
             },
-            orderBy: [ { status: 'asc' }, { createdAt: 'desc' } ]
+            orderBy: [ { status: 'asc' }, { createdAt: 'desc' } ],
+            skip: skip,
+            take: limit + 1,
         });
+
+        const hasNextPage = requests.length > limit;
+
+        if (hasNextPage) {
+            requests.pop();
+        }
+
+        return {
+            data: requests,
+            meta: {
+                currentPage: page,
+                itemsPerPage: limit,
+                hasNextPage,
+                hasPrevPage: page > 1
+            }
+        };
     },
 
     /* admin only list adoption requests */
-    async listAdoptions(userRole: string, filters?: ListRequestsQueryInput) {
+    async listAdoptions(userRole: string, filters: ListRequestsQueryInput) {
         if (userRole !== "ADMIN") {
             throw new HTTPException(401, { message: "Unauthorized" });
         }
         
-        return await prisma.adoptionRequest.findMany({
+        const limit = filters.limit;
+        const page = filters.page;
+        const skip = (page - 1) * limit;
+
+        const requests = await prisma.adoptionRequest.findMany({
             where: {
-                status: filters?.status,
-                petId: filters?.petId,
+                status: filters.status,
+                petId: filters.petId,
             },
             include: {
                 pet: { select: { name: true, species: true } }
             },
-            orderBy: [ { status: 'asc' }, { createdAt: 'desc' } ]
+            orderBy: [ { status: 'asc' }, { createdAt: 'desc' } ],
+            skip: skip,
+            take: limit + 1, 
         });
+
+        const hasNextPage = requests.length > limit;
+
+        if (hasNextPage) {
+            requests.pop();
+        }
+
+        return {
+            data: requests,
+            meta: {
+                currentPage: page,
+                itemsPerPage: limit,
+                hasNextPage,
+                hasPrevPage: page > 1
+            }
+        };
     }
 };

@@ -207,27 +207,49 @@ export const neuteringService = {
     },
 
     /* admin only */
-    async list(userRole: string, filters?: ListNeuteringsQueryInput) {
+    async list(userRole: string, filters: ListNeuteringsQueryInput) {
         if (userRole !== "ADMIN") {
             throw new HTTPException(401, { message: "Unauthorized" });
         }
 
-        return await prisma.neuteringAppointment.findMany({
+        const limit = filters.limit;
+        const page = filters.page;
+        const skip = (page - 1) * limit;
+
+        const appointments = await prisma.neuteringAppointment.findMany({
             where: {
-                userId: filters?.userId,
-                status: filters?.status,
-                petId: filters?.petId,
+                userId: filters.userId,
+                status: filters.status,
+                petId: filters.petId,
                 scheduleDate: {
-                    gte: filters?.startDate,
-                    lte: filters?.endDate
+                    gte: filters.startDate,
+                    lte: filters.endDate
                 }
             },
             include: {
                 pet: { select: { name: true, species: true, ownerId: true } },
-                user: { select: { name: true, email: true, cpf: true, phone: true } }
+                user: { select: { name: true, email: true, phone: true } }
             },
-            orderBy: { scheduleDate: 'desc' }
+            orderBy: { scheduleDate: 'desc' },
+            skip: skip,
+            take: limit + 1, // O truque N+1
         });
+
+        const hasNextPage = appointments.length > limit;
+
+        if (hasNextPage) {
+            appointments.pop();
+        }
+
+        return {
+            data: appointments,
+            meta: {
+                currentPage: page,
+                itemsPerPage: limit,
+                hasNextPage,
+                hasPrevPage: page > 1
+            }
+        };
     },
 
     /* admin only */

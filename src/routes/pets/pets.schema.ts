@@ -102,6 +102,8 @@ export const listPetsQuerySchema = z.object({
     userId: z.string() /* admin-only filter */
         .max(50, "User ID must be less than 50 characters")
         .optional(),
+    page: z.coerce.number().int().min(1).default(1),
+    limit: z.coerce.number().int().min(1).max(100).default(20),
 });
 
 export const listPetsForAdoptionQuerySchema = z.object({

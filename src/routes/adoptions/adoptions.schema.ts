@@ -48,6 +48,8 @@ export const listRequestsQuerySchema = z.object({
     status: z.enum(["PENDING", "APPROVED", "REJECTED", "CANCELLED_BY_USER"]).optional(),
     petId: z.string().optional(),
     userId: z.string().optional(),
+    page: z.coerce.number().int().min(1).default(1),
+    limit: z.coerce.number().int().min(1).max(100).default(20),
 });
 
 export type CreateGiveUpInput = z.infer<typeof createGiveUpSchema>;

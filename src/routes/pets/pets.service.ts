@@ -38,32 +38,54 @@ export const petsService = {
     },
 
     /* admin only */
-    async list(userRole: string, filters?: ListPetsParamsInput) {
+    async list(userRole: string, filters: ListPetsParamsInput) {
 
         if (userRole !== "ADMIN") {
             throw new HTTPException(401, { message: "Unauthorized" });
         }
 
-        return await prisma.pet.findMany({
+        const limit = filters.limit;
+        const page = filters.page;
+        const skip = (page - 1) * limit;
+
+        const pets = await prisma.pet.findMany({
             where: {
-                ownerId: filters?.userId, 
-                species: filters?.species, 
-                gender: filters?.gender,
+                ownerId: filters.userId, 
+                species: filters.species, 
+                gender: filters.gender,
                 deletedAt: null,
-                adoptionStatus: filters?.adoptionStatus,
-                name: filters?.name ? {
+                adoptionStatus: filters.adoptionStatus,
+                name: filters.name ? {
                     contains: filters.name,
                     mode: 'insensitive'
                 } : undefined,
-                breed: filters?.breed ? {
+                breed: filters.breed ? {
                     equals: filters.breed,
                 } : undefined,
-                chip: filters?.chip ? {
+                chip: filters.chip ? {
                     equals: filters.chip,
                 } : undefined,
             },
-            orderBy: { createdAt: 'desc' }
+            orderBy: { createdAt: 'desc' },
+            skip: skip,
+            take: limit + 1, // The N+1 trick
         });
+
+        const hasNextPage = pets.length > limit;
+
+        if (hasNextPage) {
+            pets.pop(); 
+        }
+
+        return {
+            data: pets,
+            meta: {
+                currentPage: page,
+                itemsPerPage: limit,
+                hasNextPage,
+                hasPrevPage: page > 1
+            }
+        };
     },
 
     async listByUser(userId: string, userRole: string, filters?: ListPetsParamsInput) {

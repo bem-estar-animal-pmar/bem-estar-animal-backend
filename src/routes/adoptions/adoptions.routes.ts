@@ -73,8 +73,6 @@ app.get('/request', async (ctx) => {
         throw new HTTPException(400, { message: "Invalid query parameters", cause: validation.error });
     }
 
-    // Nota: Aqui não tem o /request/me porque quem pede para adotar não precisa 
-    // ter conta logada no momento do pedido (rota pública). O tracking é feito pelo Admin.
     const requests = await adoptionsService.listAdoptions(role, validation.data);
     return ctx.json(requests, 200);
 });

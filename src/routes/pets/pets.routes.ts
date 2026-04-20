@@ -53,10 +53,7 @@ app.get('/me', async (ctx) => {
         user.id, 
 		role,
 		{
-			name: query.name,
-			species: query.species,
-			gender: query.gender,
-			breed: query.breed,
+			...query
 		}
     );
 	
@@ -69,27 +66,20 @@ app.get('/me', async (ctx) => {
 app.get('/', async (ctx) => {
     const user = ctx.get("user")!; /* authMiddle already make sure 'user' exists */
     
+    const rawQuery = ctx.req.query();
+    const validation = listPetsQuerySchema.safeParse(rawQuery);
 
-	const rawQuery = ctx.req.query();
-	const validation = listPetsQuerySchema.safeParse(rawQuery);
-
-	if (!validation.success) {
-		throw new HTTPException(400, {  message: "Validation Error. Invalid params", cause: validation.error })
+    if (!validation.success) {
+        throw new HTTPException(400, {  message: "Validation Error. Invalid params", cause: validation.error })
     }
 
-	const query = validation.data;
+    const query = validation.data;
     const role = user.role ?? "USER"; 
 
-    const pets = await petsService.list(role, {
-        userId: query.userId,
-		name: query.name,
-		gender: query.gender,
-		species: query.species,
-		breed: query.breed,
-		chip: query.chip
-    });
+    // Pass the entire validated query (which includes page and limit defaults)
+    const result = await petsService.list(role, query);
 
-    return ctx.json(pets, 200);
+    return ctx.json(result, 200);
 });
 
 /* @desc create a new pet
