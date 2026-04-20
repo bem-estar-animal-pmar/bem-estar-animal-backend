@@ -96,6 +96,9 @@ export const listPetsQuerySchema = z.object({
         "TEMPORARY_HOME",
         "STRAY_ANIMAL"
     ]).optional(),
+    chip: z.string()
+        .max(50)
+        .optional(),
     userId: z.string() /* admin-only filter */
         .max(50, "User ID must be less than 50 characters")
         .optional(),

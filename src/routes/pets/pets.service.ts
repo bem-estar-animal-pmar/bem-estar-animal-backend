@@ -57,7 +57,10 @@ export const petsService = {
                 } : undefined,
                 breed: filters?.breed ? {
                     equals: filters.breed,
-                } : undefined
+                } : undefined,
+                chip: filters?.chip ? {
+                    equals: filters.chip,
+                } : undefined,
             },
             orderBy: { createdAt: 'desc' }
         });

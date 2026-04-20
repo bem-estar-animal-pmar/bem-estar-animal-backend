@@ -86,6 +86,7 @@ app.get('/', async (ctx) => {
 		gender: query.gender,
 		species: query.species,
 		breed: query.breed,
+		chip: query.chip
     });
 
     return ctx.json(pets, 200);
