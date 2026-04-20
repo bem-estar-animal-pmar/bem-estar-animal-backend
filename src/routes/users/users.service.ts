@@ -15,6 +15,10 @@ export const usersService = {
             const users = await prisma.user.findMany({
                 where: {
                     id: filters.id, 
+                    name: filters.name ? {
+                        contains: filters.name,
+                        mode: 'insensitive' 
+                    } : undefined,
                     cpf: filters.cpf, 
                     role: filters.role,
                 },

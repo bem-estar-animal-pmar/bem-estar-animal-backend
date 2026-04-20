@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const listUsersQuerySchema = z.object({
+    name: z.string().optional(),
     cpf: z.string()
         .max(11, "CPF must be less than 11 characters")
         .optional(),
