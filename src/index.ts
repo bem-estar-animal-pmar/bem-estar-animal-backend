@@ -7,6 +7,8 @@ import petsRouter from "./routes/pets/pets.routes"
 import neuteringRouter from "./routes/neuterings/neuterings.routes"
 import emergencyRouter from "./routes/emergencies/emergencies.routes"
 import adoptionRouter from "./routes/adoptions/adoptions.routes"
+import medicalRecordRouter from "./routes/medical-records/medical-records.routes"
+import userRouter from "./routes/users/users.routes"
 
 /* SQL Inject is protected by Prisma */
 /* CORS is configured */
@@ -46,6 +48,8 @@ app.route('/api/pets', petsRouter);
 app.route('/api/neuterings', neuteringRouter);
 app.route('/api/emergencies', emergencyRouter);
 app.route('/api/adoptions', adoptionRouter);
+app.route('/api/medical-records', medicalRecordRouter);
+app.route('/api/admin/users', userRouter);
 
 app.get('/', (c) => {
 	return c.text('Hello Hono!')
