@@ -198,7 +198,7 @@ model Pet {
   species           PetSpecies
   gender            PetGender
   birthDate         DateTime         
-  breed             PetBreed             @default(MIXED_BREED) // 'poodle'
+  breed             PetBreed           @default(MIXED_BREED) // 'poodle'
   weight            Float              // kg
   size              PetSize
   coatColor         String             // color
@@ -269,7 +269,7 @@ model EmergencyAppointment {
 
   species         PetSpecies
   size            PetSize
-  description     String?         @db.Text
+  description     String?         @db.VarChar(1000)
   
   /* date and period are defined by the clinic */
   scheduleDate    DateTime?
@@ -294,11 +294,10 @@ model EmergencyAppointment {
 
 model MedicalRecord {
   id                      String   @id @default(uuid())
-  adminId                 String   // Veterinário
-  notes                   String   @db.Text
+  notes                   String   @db.VarChar(8000)
 
-  petId                   String   
-  pet                     Pet      @relation(fields: [petId], references: [id])
+  petId                   String?   
+  pet                     Pet?      @relation(fields: [petId], references: [id])
   
   neuteringAppointmentId  String?  @unique
   neuteringAppointment    NeuteringAppointment? @relation(fields: [neuteringAppointmentId], references: [id])
@@ -308,6 +307,7 @@ model MedicalRecord {
 
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
+  deletedAt               DateTime?
 }
 
 /* ----------------- ADOPTION REQUESTS AND GIVE UP MODELS ----------------- */
@@ -322,7 +322,7 @@ enum RequestStatus {
 model GiveUpRequest {
   id        String        @id @default(uuid())
   status    RequestStatus @default(PENDING)
-  reason    String?       @db.Text
+  reason    String?       @db.VarChar(8000)
   
   petId     String        @unique
   pet       Pet           @relation(fields: [petId], references: [id])
