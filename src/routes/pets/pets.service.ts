@@ -66,6 +66,9 @@ export const petsService = {
                     equals: filters.chip,
                 } : undefined,
             },
+            include: {
+                owner: { select: { name: true, lastName: true } }
+            },
             orderBy: { createdAt: 'desc' },
             skip: skip,
             take: limit + 1, // The N+1 trick
