@@ -228,7 +228,7 @@ export const neuteringService = {
             },
             include: {
                 pet: { select: { name: true, species: true, ownerId: true } },
-                user: { select: { name: true, email: true, phone: true } }
+                user: { select: { name: true, lastName: true, email: true, phone: true } }
             },
             orderBy: { scheduleDate: 'desc' },
             skip: skip,
