@@ -24,7 +24,10 @@ export const createPetSchema = z.object({
     coatColor: z.string()
         .min(1, "Coat color is required")
         .max(28, "Coat color must be less than 28 characters"),
-    birthDate: z.coerce.date(),
+    birthDate: z.coerce.date()
+        .transform(date => 
+            new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))
+        ),
     chip: z.string()
         .max(50)
         .optional(), /* must add constraint on service to only let admin set chip */
@@ -57,7 +60,11 @@ export const updatePetSchema = z.object({
     coatColor: z.string()
         .max(28)
         .optional(),
-    birthDate: z.coerce.date().optional(),
+    birthDate: z.coerce.date()
+        .transform(date => 
+            new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))
+        )
+        .optional(), /* since we rely in period instead of hours of date, zod will clean up any date the frontend sends to prevent bugs */
     chip: z.string()
         .max(50)
         .optional(), /* must add constraint on service to only let admin set chip */
