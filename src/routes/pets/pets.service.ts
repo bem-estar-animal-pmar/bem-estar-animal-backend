@@ -67,7 +67,7 @@ export const petsService = {
                 } : undefined,
             },
             include: {
-                owner: { select: { name: true, lastName: true } }
+                owner: { select: { name: true, lastName: true, email: true, phone: true } }
             },
             orderBy: { createdAt: 'desc' },
             skip: skip,
@@ -112,14 +112,23 @@ export const petsService = {
         });
     },
 
-    async getById(petId: string, userId: string) {
-        return await prisma.pet.findFirst({
-            where: { 
-                id: petId, 
-                ownerId: userId,
-                deletedAt: null,
-            }
+    async getById(petId: string, userId: string, userRole: string) {
+        const existingPet = await prisma.pet.findUnique({
+            where: { id: petId },
+            include: {
+                owner: { select: { name: true, lastName: true, email: true, phone: true } }
+            },
         });
+
+        if (!existingPet) {
+            throw new HTTPException(404, { message: "Pet not found" });
+        }
+
+        if (existingPet.ownerId !== userId && userRole !== "ADMIN") {
+            throw new HTTPException(404, { message: "Pet not found" });
+        }
+
+        return existingPet;
     },
 
     async create(userId: string, userRole: string, data: CreatePetInput) {

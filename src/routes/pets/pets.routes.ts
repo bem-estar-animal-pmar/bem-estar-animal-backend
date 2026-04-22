@@ -82,6 +82,20 @@ app.get('/', async (ctx) => {
     return ctx.json(result, 200);
 });
 
+/* @desc get a specific pet data
+   @route GET https://example.com/api/pets/details/:id
+   @access private (USER, ADMIN) */
+app.get('/details/:id', async (ctx) => {
+    const user = ctx.get("user")!; /* authMiddle already make sure 'user' exists */
+
+    const petId = ctx.req.param('id');
+	const role = user.role ?? "USER";
+
+    // Pass the entire validated query (which includes page and limit defaults)
+    const result = await petsService.getById(petId, user.id, role);
+    return ctx.json(result, 200);
+});
+
 /* @desc create a new pet
    @route POST https://example.com/api/pets
    @access private (USER, ADMIN) */
