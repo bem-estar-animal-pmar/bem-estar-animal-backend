@@ -41,6 +41,20 @@ app.get('/', async (ctx) => {
     return ctx.json(appointments, 200);
 });
 
+/* @desc get a specific pet data
+   @route GET https://example.com/api/pets/details/:id
+   @access private (USER, ADMIN) */
+app.get('/details/:id', async (ctx) => {
+    const user = ctx.get("user")!; /* authMiddle already make sure 'user' exists */
+
+    const neuteringId = ctx.req.param('id');
+    const role = user.role ?? "USER";
+
+    const result = await neuteringService.getById(neuteringId, user.id, role);
+    return ctx.json(result, 200);
+});
+
+
 /* @desc create a new neutering appointment
    @route POST /api/neutering
    @access private (USER, ADMIN) */

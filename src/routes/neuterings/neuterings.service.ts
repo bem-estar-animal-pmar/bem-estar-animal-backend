@@ -184,6 +184,26 @@ export const neuteringService = {
         });
     },
 
+    async getById(neuteringId: string, userId: string, userRole: string) {
+        const existingNeutering = await prisma.neuteringAppointment.findUnique({
+            where: { id: neuteringId },
+            include: {
+                pet: { select: { name: true, species: true, ownerId: true } },
+                user: { select: { name: true, lastName: true, email: true, phone: true } }
+            },
+        });
+
+        if (!existingNeutering) {
+            throw new HTTPException(404, { message: "Neutering not found" });
+        }
+
+        if (existingNeutering.userId !== userId && userRole !== "ADMIN") {
+            throw new HTTPException(404, { message: "Neutering not found" });
+        }
+
+        return existingNeutering;
+    },
+
     async checkSlotAvailability(date: Date, period: string, limit: number) {
         const count = await prisma.neuteringAppointment.count({
             where: {
