@@ -1,7 +1,7 @@
 import { prisma } from "../../lib/prisma.js";
 import { HTTPException } from "hono/http-exception";
 import type { CreateNeuteringInput, UpdateNeuteringStatusInput, ListNeuteringsQueryInput } from "./neuterings.schema";
-import { NEUTERING_QUOTAS, MAX_PETS_PER_MONTH_BY_CPF, MIN_DAY_LIMIT_FOR_NEUTERING_REQUEST, MIN_HOUR_LIMIT_FOR_USER_CANCEL_NEUTERING_REQUEST, MIN_PET_AGE_FOR_NEUTERING, MAX_PET_AGE_FOR_NEUTERING, MIN_PET_WEIGHT_FOR_NEUTERING, MAX_PET_WEIGHT_FOR_NEUTERING, BRACHYCEPHALIC_BREEDS } from "../../constants/constants"
+import { NEUTERING_QUOTAS, MAX_PETS_PER_MONTH_BY_CPF, MIN_DAY_LIMIT_FOR_NEUTERING_REQUEST, MAX_DAY_LIMIT_FOR_USER_CANCEL_NEUTERING_REQUEST, MIN_PET_AGE_FOR_NEUTERING, MAX_PET_AGE_FOR_NEUTERING, MAX_MONTH_LIMIT_FOR_NEUTERING_REQUEST, MIN_PET_WEIGHT_FOR_NEUTERING, MAX_PET_WEIGHT_FOR_NEUTERING, BRACHYCEPHALIC_BREEDS } from "../../constants/constants"
 
 /* frontend will receive absolute 00:00 dates in UTC-0 it must not convert the date to local timezone or it may
 change the day and cause bugs */
@@ -90,14 +90,24 @@ export const neuteringService = {
             });
         }
 
-        /* rule 1: you can only send appointment requests after MIN_DAY_LIMIT_FOR_NEUTERING_REQUEST */
-        const now = new Date(); /* now is in UTC-0 probably */
-        const localNow = new Date(now.getTime() - (3 * 60 * 60 * 1000)); /* convert to brasilia to match frontend day */
-        const minDate = new Date(Date.UTC(localNow.getUTCFullYear(), localNow.getUTCMonth(), localNow.getUTCDate() + MIN_DAY_LIMIT_FOR_NEUTERING_REQUEST, 0, 0, 0, 0));
-        
+        /* rule 1: you can only send appointment requests after MIN_DAY_LIMIT_FOR_NEUTERING_REQUEST and before */
+        const nowInBrazil = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+        const todayInUtc = new Date(Date.UTC(nowInBrazil.getFullYear(), nowInBrazil.getMonth(), nowInBrazil.getDate()));
+
+        const minDate = new Date(todayInUtc);
+        minDate.setUTCDate(todayInUtc.getUTCDate() + MIN_DAY_LIMIT_FOR_NEUTERING_REQUEST);
+
+        const maxDate = new Date(todayInUtc);
+        maxDate.setUTCMonth(todayInUtc.getUTCMonth() + MAX_MONTH_LIMIT_FOR_NEUTERING_REQUEST);
+
         if (data.scheduleDate < minDate) {
             throw new HTTPException(400, { message: `Appointments must be scheduled at least ${MIN_DAY_LIMIT_FOR_NEUTERING_REQUEST} days in advance` });
         }
+
+        if (data.scheduleDate > maxDate) {
+            throw new HTTPException(400, { message: `Appointments must be scheduled at maximum ${MAX_MONTH_LIMIT_FOR_NEUTERING_REQUEST} months after today` });
+        }
+
 
         /* rule 2: if user is blocked by NO_SHOW, don't allow the request */
         if (user.blockedUntil && user.blockedUntil > new Date()) {
@@ -310,13 +320,17 @@ export const neuteringService = {
             throw new HTTPException(400, { message: `Cannot cancel an appointment with status ${appointment.status}` });
         }
 
-        /* rule: you can only cancel > 24 hours before the appointment */
-        const now = new Date();
-        const localNow = new Date(now.getTime() - (3 * 60 * 60 * 1000)); // UTC-3
-        const hoursDifference = (appointment.scheduleDate.getTime() - localNow.getTime()) / (1000 * 60 * 60);
+        /* rule: you can only cancel confirmed appointments > 24 hours before the appointment */
+        if (appointment.status === "CONFIRMED") {
+            const nowInBrazil = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+            const today = new Date(Date.UTC(nowInBrazil.getFullYear(), nowInBrazil.getMonth(), nowInBrazil.getDate()));
+            const msInADay = 1000 * 60 * 60 * 24;
+            const daysDifference = (appointment.scheduleDate.getTime() - today.getTime()) / msInADay;
 
-        if (hoursDifference < MIN_HOUR_LIMIT_FOR_USER_CANCEL_NEUTERING_REQUEST) {
-            throw new HTTPException(400, { message: "Cancellations must be made at least 48 hours in advance. If you still want to cancel contact the clinic" });
+            if (daysDifference < MAX_DAY_LIMIT_FOR_USER_CANCEL_NEUTERING_REQUEST) { 
+                throw new HTTPException(400, { message: `Cancellations must be made at least ${MAX_DAY_LIMIT_FOR_USER_CANCEL_NEUTERING_REQUEST * 24} hours in advance. If you still want to cancel contact the clinic` });
+            }
+
         }
 
         return await prisma.neuteringAppointment.update({

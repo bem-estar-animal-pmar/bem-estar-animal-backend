@@ -3,6 +3,8 @@ export const PETS_PER_USER_LIMIT = 8;
 export const MAX_PETS_PER_MONTH_BY_CPF = 2;
 
 export const MIN_DAY_LIMIT_FOR_NEUTERING_REQUEST = 2;
+export const MAX_MONTH_LIMIT_FOR_NEUTERING_REQUEST = 3;
+export const MAX_DAY_LIMIT_FOR_USER_CANCEL_NEUTERING_REQUEST = 2;
 
 export const MIN_PET_AGE_FOR_NEUTERING = 3; /* in months */
 export const MAX_PET_AGE_FOR_NEUTERING = 96; /* 8 years */
@@ -11,7 +13,6 @@ export const MAX_PET_AGE_FOR_NEUTERING = 96; /* 8 years */
 export const MIN_PET_WEIGHT_FOR_NEUTERING = 3; /* in kg */
 export const MAX_PET_WEIGHT_FOR_NEUTERING = 15; 
 
-export const MIN_HOUR_LIMIT_FOR_USER_CANCEL_NEUTERING_REQUEST = 48;
 
 export const NEUTERING_QUOTAS = {
     WEEKDAY: { /* segunda à quinta */
