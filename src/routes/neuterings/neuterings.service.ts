@@ -1,7 +1,14 @@
 import { prisma } from "../../lib/prisma.js";
 import { HTTPException } from "hono/http-exception";
 import type { CreateNeuteringInput, UpdateNeuteringStatusInput, ListNeuteringsQueryInput } from "./neuterings.schema";
-import { NEUTERING_QUOTAS, MAX_PETS_PER_MONTH_BY_CPF, MIN_DAY_LIMIT_FOR_NEUTERING_REQUEST, MAX_DAY_LIMIT_FOR_USER_CANCEL_NEUTERING_REQUEST, MIN_PET_AGE_FOR_NEUTERING, MAX_PET_AGE_FOR_NEUTERING, MAX_MONTH_LIMIT_FOR_NEUTERING_REQUEST, MIN_PET_WEIGHT_FOR_NEUTERING, MAX_PET_WEIGHT_FOR_NEUTERING, BRACHYCEPHALIC_BREEDS } from "../../constants/constants"
+import { 
+    MAX_PETS_PER_MONTH_BY_CPF, 
+    MAX_DAY_LIMIT_FOR_USER_CANCEL_NEUTERING_REQUEST, 
+    MIN_PET_AGE_FOR_NEUTERING, MAX_PET_AGE_FOR_NEUTERING,
+    MIN_PET_WEIGHT_FOR_NEUTERING, 
+    MAX_PET_WEIGHT_FOR_NEUTERING, 
+    BRACHYCEPHALIC_BREEDS 
+} from "../../constants/constants";
 
 /* frontend will receive absolute 00:00 dates in UTC-0 it must not convert the date to local timezone or it may
 change the day and cause bugs */
@@ -26,6 +33,11 @@ export const neuteringService = {
 
         if (pet.ownerId !== userId) {
             throw new HTTPException(403, { message: "You can only schedule appointments for your own pet" });
+        }
+
+        if (user.role !== "ADMIN") {
+            delete data.scheduleDate;
+            delete data.period;
         }
 
         /* pets with active neutering appointments or already neutered cannot create another request */
@@ -78,8 +90,6 @@ export const neuteringService = {
                 data: {
                     userId,
                     petId: data.petId,
-                    scheduleDate: data.scheduleDate,
-                    period: data.period,
                     status: neuteringStatus
                 },
                 include: { /* return pet data so frontend can show on success screen */
@@ -90,33 +100,16 @@ export const neuteringService = {
             });
         }
 
-        /* rule 1: you can only send appointment requests after MIN_DAY_LIMIT_FOR_NEUTERING_REQUEST and before */
+        /* rule 1: if user is blocked by NO_SHOW, don't allow the request */
         const nowInBrazil = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
-        const todayInUtc = new Date(Date.UTC(nowInBrazil.getFullYear(), nowInBrazil.getMonth(), nowInBrazil.getDate()));
-
-        const minDate = new Date(todayInUtc);
-        minDate.setUTCDate(todayInUtc.getUTCDate() + MIN_DAY_LIMIT_FOR_NEUTERING_REQUEST);
-
-        const maxDate = new Date(todayInUtc);
-        maxDate.setUTCMonth(todayInUtc.getUTCMonth() + MAX_MONTH_LIMIT_FOR_NEUTERING_REQUEST);
-
-        if (data.scheduleDate < minDate) {
-            throw new HTTPException(400, { message: `Appointments must be scheduled at least ${MIN_DAY_LIMIT_FOR_NEUTERING_REQUEST} days in advance` });
-        }
-
-        if (data.scheduleDate > maxDate) {
-            throw new HTTPException(400, { message: `Appointments must be scheduled at maximum ${MAX_MONTH_LIMIT_FOR_NEUTERING_REQUEST} months after today` });
-        }
-
-
-        /* rule 2: if user is blocked by NO_SHOW, don't allow the request */
+        
         if (user.blockedUntil && user.blockedUntil > new Date()) {
             throw new HTTPException(403, {message: `User is blocked from scheduling until ${user.blockedUntil.toLocaleDateString()}`});
         }
 
-        /* rule 3: monthly limit of MAX_PETS_PER_MONTH_BY_CPF appointments per CPF */
-        const startOfMonth = new Date(Date.UTC(data.scheduleDate.getUTCFullYear(), data.scheduleDate.getUTCMonth(), 1));
-        const endOfMonth = new Date(Date.UTC(data.scheduleDate.getUTCFullYear(), data.scheduleDate.getUTCMonth() + 1, 0));
+        /* rule 2: monthly limit of MAX_PETS_PER_MONTH_BY_CPF appointments per CPF */
+        const startOfMonth = new Date(Date.UTC(nowInBrazil.getFullYear(), nowInBrazil.getMonth(), 1));
+        const endOfMonth = new Date(Date.UTC(nowInBrazil.getFullYear(), nowInBrazil.getMonth() + 1, 0));
 
         const monthlyCount = await prisma.neuteringAppointment.count({
             where: {
@@ -130,50 +123,10 @@ export const neuteringService = {
             throw new HTTPException(400, { message: "Monthly limit of neutering appointments reached for this CPF" });
         }
 
-        // rule 5: specific rules for animal species and gender based on week days */
-        const dayOfWeek = data.scheduleDate.getUTCDay(); /* 0 = Sunday, 1 = Monday 5 = Friday */
-        const isFriday = dayOfWeek === 5;
-        const isWeekday = dayOfWeek > 0 && dayOfWeek < 5;
-        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-
-        /* no appointment allowed on weekends */
-        if (isWeekend) {
-            throw new HTTPException(400, { message: "Neutering is only available from Monday to Friday" });
-        }
-
-        if (isFriday) {
-            if (pet.gender !== "MALE") {
-                throw new HTTPException(400, { message: "Fridays are reserved for male animals only" });
-            }
-            const quota = data.period === "MORNING" ? NEUTERING_QUOTAS.FRIDAY.MORNING : NEUTERING_QUOTAS.FRIDAY.AFTERNOON;
-
-            if (data.period === "MORNING" && pet.species !== quota.species) {
-                throw new HTTPException(400, { message: "Friday morning is for cats only" });
-            }
-
-            if (data.period === "AFTERNOON" && pet.species !== quota.species) {
-                throw new HTTPException(400, { message: "Friday afternoon is for dogs only" });
-            }
-
-            await this.checkSlotAvailability(data.scheduleDate, data.period, quota.limit);
-        } 
-
-        if (isWeekday) {
-            const quota = data.period === "MORNING" ? NEUTERING_QUOTAS.WEEKDAY.MORNING : NEUTERING_QUOTAS.WEEKDAY.AFTERNOON;
-            
-            if (pet.species !== quota.species) {
-                throw new HTTPException(400, { message: `Only ${quota.species}s can only be neutered in the ${data.period.toLowerCase()}` });
-            }
-
-            await this.checkSlotAvailability(data.scheduleDate, data.period, quota.limit);
-        }
-
         return await prisma.neuteringAppointment.create({
             data: {
                 userId,
                 petId: data.petId,
-                scheduleDate: data.scheduleDate,
-                period: data.period,
                 status: neuteringStatus
             },
             include: { /* return pet data so frontend can show on success screen */
@@ -232,7 +185,9 @@ export const neuteringService = {
             include: {
                 pet: { select: { name: true, species: true, gender: true, breed: true } }
             },
-            orderBy: { scheduleDate: 'desc' }
+            orderBy: [
+                { createdAt: 'desc' }
+            ]
         });
     },
 
@@ -260,7 +215,10 @@ export const neuteringService = {
                 pet: { select: { name: true, species: true, ownerId: true } },
                 user: { select: { name: true, lastName: true, email: true, phone: true } }
             },
-            orderBy: { scheduleDate: 'desc' },
+            orderBy: [
+                { scheduleDate: 'desc' }, /* most recent comes first (confirmed, completed and no_show) */
+                { createdAt: 'asc' } /* pending, awaiting_exams and cancelled has no date, so the oldest created comes first */
+            ],
             skip: skip,
             take: limit + 1, // O truque N+1
         });
@@ -298,7 +256,6 @@ export const neuteringService = {
 
         /* rule: if admin set as NO_SHOW, we automatically block the user for a month */
         if (data.status === "NO_SHOW" && appointment.status !== "NO_SHOW") {
-           
             const blockUntilDate = new Date();
             blockUntilDate.setDate(blockUntilDate.getDate() + 30); /* add 30 days */
 
@@ -313,6 +270,11 @@ export const neuteringService = {
                     data: { blockedUntil: blockUntilDate }
                 })
             ]);
+        }
+
+        /* rule: you cannot confirm  appointments without date */
+        if ((data.status === "CONFIRMED") && data.scheduleDate === null) {
+            throw new HTTPException(403, { message: "To confirm a neutering appointment you must set a date." });
         }
 
         /* update for when status is !== NO_SHOW */
@@ -341,7 +303,7 @@ export const neuteringService = {
         }
 
         /* rule: you can only cancel confirmed appointments > 24 hours before the appointment */
-        if (appointment.status === "CONFIRMED") {
+        if (appointment.status === "CONFIRMED" && appointment.scheduleDate !== null) {
             const nowInBrazil = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
             const today = new Date(Date.UTC(nowInBrazil.getFullYear(), nowInBrazil.getMonth(), nowInBrazil.getDate()));
             const msInADay = 1000 * 60 * 60 * 24;
@@ -350,7 +312,6 @@ export const neuteringService = {
             if (daysDifference < MAX_DAY_LIMIT_FOR_USER_CANCEL_NEUTERING_REQUEST) { 
                 throw new HTTPException(400, { message: `Cancellations must be made at least ${MAX_DAY_LIMIT_FOR_USER_CANCEL_NEUTERING_REQUEST * 24} hours in advance. If you still want to cancel contact the clinic` });
             }
-
         }
 
         return await prisma.neuteringAppointment.update({

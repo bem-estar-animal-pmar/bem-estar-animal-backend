@@ -86,8 +86,8 @@ export const emergencyService = {
                 pet: { select: { id: true, name: true } }
             },
             orderBy: [
-                { status: 'asc' }, /* gets pending first */
-                { createdAt: 'asc' }
+                { scheduleDate: 'desc' }, /* most recent comes first (confirmed, completed and no_show) */
+                { createdAt: 'asc' } /* pending, awaiting_exams and cancelled has no date, so the oldest created comes first */
             ],
             skip: skip,
             take: limit + 1, // O truque N+1
@@ -149,6 +149,11 @@ export const emergencyService = {
                     data: { blockedUntil: blockUntilDate }
                 })
             ]);
+        }
+
+        /* rule: you cannot confirm  appointments without date */
+        if ((data.status === "CONFIRMED") && data.scheduleDate === null) {
+            throw new HTTPException(403, { message: "To confirm a neutering appointment you must set a date." });
         }
 
         return await prisma.emergencyAppointment.update({

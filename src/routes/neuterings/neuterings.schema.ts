@@ -1,13 +1,14 @@
 import { z } from "zod";
 
+/* users cannot set schedule date and period anymore */
 export const createNeuteringSchema = z.object({ /* users are allowed to create neutering requests */
     petId: z.string() 
         .max(50, "User ID must be less than 50 characters"),
     scheduleDate: z.coerce.date()
         .transform(date => 
             new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))
-        ), /* since we rely in period instead of hours of date, zod will clean up any date the frontend sends to prevent bugs */
-    period: z.enum(["MORNING", "AFTERNOON"]),
+        ).optional(), /* since we rely in period instead of hours of date, zod will clean up any date the frontend sends to prevent bugs */
+    period: z.enum(["MORNING", "AFTERNOON"]).optional(),
     animalFastAccepted: z.coerce.boolean().refine(val => val === true, {
         message: "You must confirm that your pet will be fasting"
     }),

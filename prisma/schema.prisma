@@ -243,8 +243,8 @@ enum EmergencyStatus {
 model NeuteringAppointment {
   id            String          @id @default(uuid())
   status        NeuteringStatus @default(PENDING)
-  scheduleDate  DateTime        /* date only uses day, we do not check time */
-  period        String          /* time is based only on period */
+  scheduleDate  DateTime?        /* date only uses day, we do not check time */
+  period        String?          /* time is based only on period */
 
   userId        String
   user          User            @relation(fields: [userId], references: [id])
@@ -294,6 +294,7 @@ model EmergencyAppointment {
 
 model MedicalRecord {
   id                      String   @id @default(uuid())
+  history                 String   @db.VarChar(8000) /* to set change appointment history status */
   notes                   String   @db.VarChar(8000)
 
   petId                   String?   
