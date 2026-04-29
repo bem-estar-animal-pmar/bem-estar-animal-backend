@@ -273,7 +273,7 @@ export const neuteringService = {
         }
 
         /* rule: you cannot confirm  appointments without date */
-        if ((data.status === "CONFIRMED") && data.scheduleDate === null) {
+        if ((data.status === "CONFIRMED") && !data.scheduleDate) {
             throw new HTTPException(403, { message: "To confirm a neutering appointment you must set a date." });
         }
 
