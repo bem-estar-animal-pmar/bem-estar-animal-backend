@@ -34,7 +34,24 @@ export const updateNeuteringStatusSchema = z.object({ /* only admin can update *
 });
 
 export const listNeuteringsQuerySchema = z.object({
-    status: z.enum(["PENDING", "AWAITING_EXAMS", "CONFIRMED", "COMPLETED", "CANCELLED", "NO_SHOW"]).optional(),
+    status: z.preprocess(
+        (val) => {
+            if (typeof val === "string") {
+                return val.split(",").map(s => s.trim()).filter(Boolean);
+            }
+            return val;
+        },
+        z.array(
+            z.enum([
+                "PENDING",
+                "AWAITING_EXAMS",
+                "CONFIRMED",
+                "COMPLETED",
+                "CANCELLED",
+                "NO_SHOW"
+            ])
+        )
+    ).optional(),
     petId: z.string().optional(),
     userId: z.string().optional(), // Apenas Admin
     startDate: z.coerce.date().optional(),

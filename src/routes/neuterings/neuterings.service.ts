@@ -175,7 +175,7 @@ export const neuteringService = {
         return await prisma.neuteringAppointment.findMany({
             where: {
                 userId,
-                status: filters?.status,
+                status: filters?.status ? { in: filters.status } : undefined,
                 petId: filters?.petId,
                 scheduleDate: {
                     gte: filters?.startDate,
@@ -204,7 +204,7 @@ export const neuteringService = {
         const appointments = await prisma.neuteringAppointment.findMany({
             where: {
                 userId: filters.userId,
-                status: filters.status,
+                status: filters?.status ? { in: filters.status } : undefined,
                 petId: filters.petId,
                 scheduleDate: {
                     gte: filters.startDate,
