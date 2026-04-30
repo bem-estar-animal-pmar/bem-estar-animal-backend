@@ -50,13 +50,15 @@ export const updatePetSchema = z.object({
     name: z.string()
         .max(28)
         .optional(),
-    species: z.enum(["DOG", "CAT"]),
+    species: z.enum(["DOG", "CAT"])
+        .optional(),
     breed: z.enum(PetBreed)
         .optional(),
     weight: z.number()
         .positive()
         .optional(),
-    size: z.enum(["SMALL", "MEDIUM", "LARGE"]),
+    size: z.enum(["SMALL", "MEDIUM", "LARGE"])
+        .optional(),
     coatColor: z.string()
         .max(28)
         .optional(),
