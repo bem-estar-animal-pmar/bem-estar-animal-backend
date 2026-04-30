@@ -11,8 +11,7 @@ export const MAX_PET_AGE_FOR_NEUTERING = 96; /* 8 years */
 
 /* female dogs only */
 export const MIN_PET_WEIGHT_FOR_NEUTERING = 3; /* in kg */
-export const MAX_PET_WEIGHT_FOR_NEUTERING = 15; 
-
+export const MAX_PET_WEIGHT_FOR_NEUTERING = 15;
 
 export const NEUTERING_QUOTAS = {
     WEEKDAY: { /* segunda à quinta */
@@ -48,3 +47,13 @@ export const BRACHYCEPHALIC_BREEDS = [
   "PERSIAN",
   "EXOTIC_SHORTHAIR"
 ];
+
+export const MEDICAL_RECORDS_MAP: Record<string, string> = {
+    /* neuterings  & emergencies */
+    PENDING: "Pendente",
+    AWAITING_EXAMS: "Aguard. Exames",
+    CONFIRMED: "Confirmado",
+    COMPLETED: "Completo",
+    CANCELLED: "Cancelado",
+    NO_SHOW: "Faltou",
+};

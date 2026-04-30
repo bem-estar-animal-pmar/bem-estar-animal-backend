@@ -3,7 +3,6 @@ import { HTTPException } from "hono/http-exception";
 import type { CreateMedicalRecordInput, UpdateMedicalRecordInput, ListMedicalRecordsQueryInput } from "./medical-records.schema";
 
 export const medicalRecordService = {
-
     /* admin only */
     async create(userRole: string, data: CreateMedicalRecordInput) {
         if (userRole !== "ADMIN") {
@@ -18,13 +17,14 @@ export const medicalRecordService = {
                 include: { medicalRecord: true }
             });
 
+
             if (!neutering) {
                 throw new HTTPException(404, { message: "Neutering appointment not found" });
             }
             if (neutering.medicalRecord) {
                 throw new HTTPException(400, { message: "This appointment already has a medical record" });
             }
-            
+           
             finalPetId = neutering.petId;
         }
 
@@ -33,6 +33,7 @@ export const medicalRecordService = {
                 where: { id: data.emergencyAppointmentId },
                 include: { medicalRecord: true }
             });
+
 
             if (!emergency) {
                 throw new HTTPException(404, { message: "Emergency appointment not found" });
@@ -44,6 +45,7 @@ export const medicalRecordService = {
                 throw new HTTPException(400, { message: "This appointment already has a medical record" });
             }
 
+
             finalPetId = emergency.petId;
         }
 
@@ -54,6 +56,7 @@ export const medicalRecordService = {
         return await prisma.medicalRecord.create({
             data: {
                 notes: data.notes,
+                history: "", /* history does not show up on zod schema because it is a field that is updated by the backend only */
                 petId: finalPetId,
                 neuteringAppointmentId: data.neuteringAppointmentId,
                 emergencyAppointmentId: data.emergencyAppointmentId
@@ -66,24 +69,31 @@ export const medicalRecordService = {
             throw new HTTPException(401, { message: "Unauthorized" });
         }
 
-        const record = await prisma.medicalRecord.findUnique({ 
-            where: { id: recordId } 
+
+        const record = await prisma.medicalRecord.findUnique({
+            where: { id: recordId }
         });
+
 
         if (!record) {
             throw new HTTPException(404, { message: "Medical record not found" });
         }
 
+
         return await prisma.medicalRecord.update({
             where: { id: recordId },
-            data: { notes: data.notes }
+            data: { /* history does not show up on zod schema because it is a field that is updated by the backend only */
+                notes: data.notes
+            }
         });
     },
+
 
     async list(userRole: string, filters: ListMedicalRecordsQueryInput) {
         if (userRole !== "ADMIN") {
             throw new HTTPException(401, { message: "Unauthorized" });
         }
+
 
         return await prisma.medicalRecord.findMany({
             where: {
@@ -104,9 +114,10 @@ export const medicalRecordService = {
             throw new HTTPException(401, { message: "Unauthorized" });
         }
 
-        const whereClause = type === "NEUTERING" 
-            ? { neuteringAppointmentId: appointmentId, deletedAt: null } 
+        const whereClause = type === "NEUTERING"
+            ? { neuteringAppointmentId: appointmentId, deletedAt: null }
             : { emergencyAppointmentId: appointmentId, deletedAt: null };
+
 
         return await prisma.medicalRecord.findUnique({
             where: whereClause
@@ -116,8 +127,10 @@ export const medicalRecordService = {
     async delete(recordId: string, userRole: string) {
         if (userRole !== "ADMIN") throw new HTTPException(401, { message: "Unauthorized" });
 
+
         const record = await prisma.medicalRecord.findUnique({ where: { id: recordId } });
         if (!record || record.deletedAt) throw new HTTPException(404, { message: "Medical record not found" });
+
 
         return await prisma.medicalRecord.update({
             where: { id: recordId },

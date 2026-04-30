@@ -78,7 +78,6 @@ app.post('/', async (ctx) => {
    @access private (ADMIN) */
 app.patch('/:id/status', async (ctx) => {
     const user = ctx.get("user")!;
-    const role = user.role ?? "USER";
     const appointmentId = ctx.req.param('id');
 
     const body = await ctx.req.json();
@@ -88,7 +87,7 @@ app.patch('/:id/status', async (ctx) => {
         throw new HTTPException(400, { message: "Invalid body", cause: validation.error });
     }
 
-    const updated = await neuteringService.updateStatus(appointmentId, role, validation.data);
+    const updated = await neuteringService.updateStatus(appointmentId, user.id, validation.data);
     return ctx.json({ data: updated, message: "Status updated successfully" }, 200);
 });
 
@@ -99,7 +98,7 @@ app.patch('/:id/cancel', async (ctx) => {
     const user = ctx.get("user")!;
     const appointmentId = ctx.req.param('id');
 
-    const cancelled = await neuteringService.cancelByUser(appointmentId, user.id);
+    const cancelled = await neuteringService.cancel(appointmentId, user.id);
     return ctx.json({ data: cancelled, message: "Appointment cancelled successfully" }, 200);
 });
 
