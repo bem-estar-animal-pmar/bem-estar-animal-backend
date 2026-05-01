@@ -192,20 +192,18 @@ export const neuteringService = {
             where: { id: neuteringId },
             include: {
                 pet: { select: { name: true, species: true, ownerId: true, chip: true } },
-                user: { select: { name: true, lastName: true, email: true, phone: true } }
+                user: { select: { name: true, lastName: true, email: true, phone: true } },
+                medicalRecord: { select: { id: true, notes: true, history: true} }
             },
         });
-
 
         if (!existingNeutering) {
             throw new HTTPException(404, { message: "Neutering not found" });
         }
 
-
         if (existingNeutering.userId !== userId && userRole !== "ADMIN") {
             throw new HTTPException(404, { message: "Neutering not found" });
         }
-
 
         return existingNeutering;
     },
@@ -240,7 +238,6 @@ export const neuteringService = {
             },
             include: {
                 pet: { select: { name: true, species: true, gender: true, breed: true } },
-                medicalRecord: { select: { id: true, notes: true, history: true} }
             },
             orderBy: [
                 { createdAt: 'desc' }
