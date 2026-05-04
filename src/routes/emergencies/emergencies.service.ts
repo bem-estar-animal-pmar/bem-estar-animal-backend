@@ -115,7 +115,7 @@ export const emergencyService = {
             },
             orderBy: [
                 { scheduleDate: 'desc' }, /* most recent comes first (confirmed, completed and no_show) */
-                { createdAt: 'asc' } /* pending, awaiting_exams and cancelled has no date, so the oldest created comes first */
+                { createdAt: 'desc' } /* pending, awaiting_exams and cancelled has no date, so the oldest created comes first */
             ],
             skip: skip,
             take: limit + 1, // O truque N+1

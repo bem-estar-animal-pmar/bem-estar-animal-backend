@@ -11,44 +11,34 @@ import {
     MEDICAL_RECORDS_MAP
 } from "../../constants/constants";
 
-
 /* frontend will receive absolute 00:00 dates in UTC-0 it must not convert the date to local timezone or it may
 change the day and cause bugs */
-
 
 /* it is ok to not allow admin creates neutering requests for other users, because user is meant to attatch their pet
 to the request on the moment of creation */
 
-
 export const neuteringService = {
     async create(userId: string, data: CreateNeuteringInput) {
-
-
         const pet = await prisma.pet.findUnique({
             where: { id: data.petId }
         });
-
 
         const user = await prisma.user.findUnique({
             where: {id: userId}
         })
 
-
         if (!user || !pet) {
             throw new HTTPException(404, { message: "User or Pet not found" });
         }
-
 
         if (pet.ownerId !== userId) {
             throw new HTTPException(403, { message: "You can only schedule appointments for your own pet" });
         }
 
-
         if (user.role !== "ADMIN") {
             delete data.scheduleDate;
             delete data.period;
         }
-
 
         /* pets with active neutering appointments or already neutered cannot create another request */
         const activeAppointment = await prisma.neuteringAppointment.findFirst({
@@ -60,18 +50,13 @@ export const neuteringService = {
             }
         });
 
-
         if (activeAppointment) {
             throw new HTTPException(400, { message: "This pet already has an active neutering appointment or is already neutered" });
         }
 
-
         if (!data.termsAccepted || !data.animalFastAccepted || !data.animalChipAccepted) {
             throw new HTTPException(400, { message: "You must agree with all terms and declarations" });
-
-
         }
-
 
         /* constraint: only pets between 3 months and 8 years can be neutered */
         const today = new Date();
@@ -80,15 +65,12 @@ export const neuteringService = {
             ageInMonths--;
         }
 
-
         if (ageInMonths < MIN_PET_AGE_FOR_NEUTERING || ageInMonths > MAX_PET_AGE_FOR_NEUTERING) {
             throw new HTTPException(400, { message: "Neutering is only allowed for pets between 3 months and 8 years old" });
         }
 
-
         /* constraint: pets below 3 kg or above 15 kg must do exams */
         let neuteringStatus:'PENDING' | 'AWAITING_EXAMS' = "PENDING";
-
 
         if (pet.species === "DOG" && pet.gender === "FEMALE") {
             if ((pet.weight <= MIN_PET_WEIGHT_FOR_NEUTERING) || pet.weight > MAX_PET_WEIGHT_FOR_NEUTERING) {
@@ -96,12 +78,10 @@ export const neuteringService = {
             }
         }
 
-
         /* constraint: brachycephalic pets must do exams */
         if (pet.breed && BRACHYCEPHALIC_BREEDS.includes(pet.breed)) {
             neuteringStatus = "AWAITING_EXAMS";
         }
-
 
         /* get now to create and update a medical record history */
         const nowInBrazilShort = new Date().toLocaleString("pt-BR", {
@@ -110,10 +90,8 @@ export const neuteringService = {
             timeStyle: "short"
         });
 
-
-        const creator = user.role === "ADMIN" ? `pelo administrador ${user.name}` : "pelo usuário";
+        const creator = user.role === "ADMIN" ? `pelo administrador ${user.name}` : "pelo tutor";
         const initialHistory = `[${nowInBrazilShort}] Pedido criado com status ${MEDICAL_RECORDS_MAP[neuteringStatus]} ${creator}.`;
-
 
         /* admins are allowed to skip any rules for neutering request creation */
         if (user.role === "ADMIN") {
@@ -138,18 +116,15 @@ export const neuteringService = {
             });
         }
 
-
         /* rule 1: if user is blocked by NO_SHOW, don't allow the request */
         if (user.blockedUntil && user.blockedUntil > new Date()) {
             throw new HTTPException(403, {message: `User is blocked from scheduling until ${user.blockedUntil.toLocaleDateString()}`});
         }
 
-
         /* rule 2: monthly limit of MAX_PETS_PER_MONTH_BY_CPF appointments per CPF */
         const nowInBrazil = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
         const startOfMonth = new Date(Date.UTC(nowInBrazil.getFullYear(), nowInBrazil.getMonth(), 1));
         const endOfMonth = new Date(Date.UTC(nowInBrazil.getFullYear(), nowInBrazil.getMonth() + 1, 0));
-
 
         const monthlyCount = await prisma.neuteringAppointment.count({
             where: {
@@ -159,11 +134,9 @@ export const neuteringService = {
             }
         });
 
-
         if (monthlyCount >= MAX_PETS_PER_MONTH_BY_CPF) {
             throw new HTTPException(400, { message: "Monthly limit of neutering appointments reached for this CPF" });
         }
-
 
         return await prisma.neuteringAppointment.create({
             data: {
@@ -274,7 +247,7 @@ export const neuteringService = {
             },
             orderBy: [
                 { scheduleDate: 'desc' }, /* most recent comes first (confirmed, completed and no_show) */
-                { createdAt: 'asc' } /* pending, awaiting_exams and cancelled has no date, so the oldest created comes first */
+                { createdAt: 'desc' } /* pending, awaiting_exams and cancelled has no date, so the oldest created comes first */
             ],
             skip: skip,
             take: limit + 1, // O truque N+1
@@ -299,7 +272,6 @@ export const neuteringService = {
             }
         };
     },
-
 
     /* admin only */
     async updateStatus(appointmentId: string, userId: string, data: UpdateNeuteringStatusInput) {
@@ -435,8 +407,8 @@ export const neuteringService = {
                 dateStyle: "short",
                 timeStyle: "short"
             });
-            const creator = user.role === "ADMIN" ? `pelo administrador ${user.name}` : "pelo usuário";
-            const logEntry = `[${nowInBrazilShort}] Status alterado para ${MEDICAL_RECORDS_MAP["CANCELLED"]} ${creator}.`;
+            const creator = user.role === "ADMIN" ? `pelo administrador ${user.name}` : "pelo tutor";
+            const logEntry = `[${nowInBrazilShort}] Status alterado para ${MEDICAL_RECORDS_MAP["CANCELLED"]} ${creator}`;
 
             medicalRecordUpdate = {
                 update: {
