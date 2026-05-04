@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { authMiddleware, type AuthEnv } from '../../middleware/authHandler';
 import { HTTPException } from 'hono/http-exception';
 import { neuteringService } from "./neuterings.service";
-import { createNeuteringSchema, listNeuteringsQuerySchema, updateNeuteringStatusSchema } from './neuterings.schema';
+import { createNeuteringSchema, listNeuteringsQuerySchema, updateNeuteringStatusSchema, calendarQuerySchema } from './neuterings.schema';
 
 const app = new Hono<AuthEnv>();
 
@@ -103,3 +103,27 @@ app.patch('/:id/cancel', async (ctx) => {
 });
 
 export default app;
+
+/* @desc get appointment counts for calendar distribution
+   @route GET /api/neutering/calendar?startDate=2026-05-01&endDate=2026-05-31
+   @access private (USER, ADMIN) */
+app.get('/calendar', async (ctx) => {
+    const user = ctx.get("user")!;
+    if (!user) {
+        throw new HTTPException(403, { message: "Unauthorized access to calendar data" });
+    }
+
+    const rawQuery = ctx.req.query();
+    const validation = calendarQuerySchema.safeParse(rawQuery);
+
+    if (!validation.success) {
+        throw new HTTPException(400, { message: "Invalid date parameters", cause: validation.error });
+    }
+
+    const calendarData = await neuteringService.getCalendarCounts(
+        validation.data.startDate,
+        validation.data.endDate
+    );
+    
+    return ctx.json(calendarData, 200);
+});

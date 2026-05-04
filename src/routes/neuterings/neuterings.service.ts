@@ -495,5 +495,67 @@ export const neuteringService = {
                 medicalRecord: medicalRecordUpdate
             }
         });
-    }
+    },
+
+    /* admin only: count neutering appointments per day and period and return AVAILABLE COUNT */
+    async getCalendarCounts(startDate: Date, endDate: Date) {
+        const counts = await prisma.neuteringAppointment.groupBy({
+            by: ['scheduleDate', 'period'],
+            _count: {
+                id: true
+            },
+            where: {
+                scheduleDate: {
+                    gte: startDate,
+                    lte: endDate
+                },
+                status: { in: ["PENDING", "CONFIRMED", "AWAITING_EXAMS", "COMPLETED"] },
+                period: { not: null }
+            }
+        });
+
+        /* map all ocuped days */
+        const filledSlots = counts.reduce((acc, curr) => {
+            if (!curr.scheduleDate || !curr.period) return acc;
+            
+            const dateStr = curr.scheduleDate.toISOString().split('T')[0];
+            if (!acc[dateStr]) acc[dateStr] = { MORNING: 0, AFTERNOON: 0 };
+            
+            acc[dateStr][curr.period] = curr._count.id;
+            return acc;
+        }, {} as Record<string, Record<string, number>>);
+
+        const calendarData: Record<string, { MORNING: number; AFTERNOON: number }> = {};
+        
+        let currentDate = new Date(startDate);
+
+        /* iterate through each day */
+        while (currentDate <= endDate) {
+            const dateStr = currentDate.toISOString().split('T')[0];
+            const dayOfWeek = currentDate.getUTCDay();
+
+            /* if day is saturday or sunday, available slots is always 0 */
+            if (dayOfWeek === 0 || dayOfWeek === 6) {
+                calendarData[dateStr] = { MORNING: 0, AFTERNOON: 0 };
+            } else {
+                const isFriday = dayOfWeek === 5;
+                const dailyQuota = isFriday ? NEUTERING_QUOTAS.FRIDAY : NEUTERING_QUOTAS.WEEKDAY;
+
+                /* get filled count */
+                const filledMorning = filledSlots[dateStr]?.MORNING || 0;
+                const filledAfternoon = filledSlots[dateStr]?.AFTERNOON || 0;
+
+                /* subtract to the quota limit and save available count */
+                calendarData[dateStr] = {
+                    MORNING: Math.max(0, dailyQuota.MORNING.limit - filledMorning),
+                    AFTERNOON: Math.max(0, dailyQuota.AFTERNOON.limit - filledAfternoon)
+                };
+            }
+
+            /* advances 1 day */
+            currentDate.setUTCDate(currentDate.getUTCDate() + 1);
+        }
+
+        return calendarData;
+    },
 };

@@ -60,6 +60,14 @@ export const listNeuteringsQuerySchema = z.object({
     limit: z.coerce.number().int().min(1).max(100).default(20),
 });
 
+export const calendarQuerySchema = z.object({
+    startDate: z.coerce.date()
+        .transform(date => new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))),
+    endDate: z.coerce.date()
+        .transform(date => new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))),
+});
+
 export type CreateNeuteringInput = z.infer<typeof createNeuteringSchema>;
 export type UpdateNeuteringStatusInput = z.infer<typeof updateNeuteringStatusSchema>;
 export type ListNeuteringsQueryInput = z.infer<typeof listNeuteringsQuerySchema>;
+export type calendarQueryInput = z.infer<typeof calendarQuerySchema>;
