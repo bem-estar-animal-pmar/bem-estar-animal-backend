@@ -7,7 +7,10 @@ import {
     MIN_PET_AGE_FOR_NEUTERING, MAX_PET_AGE_FOR_NEUTERING,
     MIN_PET_WEIGHT_FOR_NEUTERING,
     MAX_PET_WEIGHT_FOR_NEUTERING,
+    MIN_DAY_LIMIT_FOR_NEUTERING_REQUEST,
+    MAX_MONTH_LIMIT_FOR_NEUTERING_REQUEST,
     BRACHYCEPHALIC_BREEDS,
+    NEUTERING_QUOTAS,
     MEDICAL_RECORDS_MAP
 } from "../../constants/constants";
 
@@ -33,11 +36,6 @@ export const neuteringService = {
 
         if (pet.ownerId !== userId) {
             throw new HTTPException(403, { message: "You can only schedule appointments for your own pet" });
-        }
-
-        if (user.role !== "ADMIN") {
-            delete data.scheduleDate;
-            delete data.period;
         }
 
         /* pets with active neutering appointments or already neutered cannot create another request */
@@ -78,9 +76,20 @@ export const neuteringService = {
             }
         }
 
-        /* constraint: brachycephalic pets must do exams */
-        if (pet.breed && BRACHYCEPHALIC_BREEDS.includes(pet.breed)) {
+        /* constraint: brachycephalic pets must do exams and date is deleted */
+        const isBrachycephalic = pet.breed && BRACHYCEPHALIC_BREEDS.includes(pet.breed);
+        
+        if (isBrachycephalic) {
             neuteringStatus = "AWAITING_EXAMS";
+            data.scheduleDate = undefined;
+            data.period = undefined;
+        }
+
+        /* constraint: if user is not an admin and animal is not brachycephalic, date and period are mandatory */
+        if (user.role !== "ADMIN" && !isBrachycephalic) {
+            if (!data.scheduleDate || !data.period) {
+                throw new HTTPException(400, { message: "Schedule date and period are required for this pet" });
+            }
         }
 
         /* get now to create and update a medical record history */
@@ -100,6 +109,8 @@ export const neuteringService = {
                     userId,
                     petId: data.petId,
                     status: neuteringStatus,
+                    scheduleDate: data.scheduleDate,
+                    period: data.period,
                     medicalRecord: {
                         create: {
                             petId: data.petId,
@@ -138,11 +149,70 @@ export const neuteringService = {
             throw new HTTPException(400, { message: "Monthly limit of neutering appointments reached for this CPF" });
         }
 
+        /* if it is here, pet is not brachycephalic (must have date) or user is not an admin */
+        if (data.scheduleDate) {
+            const todayInUtc = new Date(Date.UTC(nowInBrazil.getFullYear(), nowInBrazil.getMonth(), nowInBrazil.getDate()));
+
+            const minDate = new Date(todayInUtc);
+            minDate.setUTCDate(todayInUtc.getUTCDate() + MIN_DAY_LIMIT_FOR_NEUTERING_REQUEST);
+
+            const maxDate = new Date(todayInUtc);
+            maxDate.setUTCMonth(todayInUtc.getUTCMonth() + MAX_MONTH_LIMIT_FOR_NEUTERING_REQUEST);
+
+            if (data.scheduleDate < minDate) {
+                throw new HTTPException(400, { message: `Appointments must be scheduled at least ${MIN_DAY_LIMIT_FOR_NEUTERING_REQUEST} days in advance` });
+            }
+
+            if (data.scheduleDate > maxDate) {
+                throw new HTTPException(400, { message: `Appointments must be scheduled at maximum ${MAX_MONTH_LIMIT_FOR_NEUTERING_REQUEST} months after today` });
+            }
+
+            /* neutering quotas constraint */
+            const dayOfWeek = data.scheduleDate.getUTCDay(); /* 0 = Sunday, 1 = Monday 5 = Friday */
+            const isFriday = dayOfWeek === 5;
+            const isWeekday = dayOfWeek > 0 && dayOfWeek < 5;
+            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
+            /* no appointment allowed on weekends */
+            if (isWeekend) {
+                throw new HTTPException(400, { message: "Neutering is only available from monday to friday" });
+            }
+
+            if (isFriday) {
+                if (pet.gender !== "MALE") {
+                    throw new HTTPException(400, { message: "Fridays are reserved for male animals only" });
+                }
+                const quota = data.period === "MORNING" ? NEUTERING_QUOTAS.FRIDAY.MORNING : NEUTERING_QUOTAS.FRIDAY.AFTERNOON;
+
+                if (data.period === "MORNING" && pet.species !== quota.species) {
+                    throw new HTTPException(400, { message: "Friday morning is for cats only" });
+                }
+
+                if (data.period === "AFTERNOON" && pet.species !== quota.species) {
+                    throw new HTTPException(400, { message: "Friday afternoon is for dogs only" });
+                }
+
+                await this.checkSlotAvailability(data.scheduleDate, data.period!, quota.limit);
+            } 
+
+            if (isWeekday) {
+                const quota = data.period === "MORNING" ? NEUTERING_QUOTAS.WEEKDAY.MORNING : NEUTERING_QUOTAS.WEEKDAY.AFTERNOON;
+                
+                if (pet.species !== quota.species) {
+                    throw new HTTPException(400, { message: `Only ${quota.species.toLowerCase()}s can be neutered in the ${data.period!.toLowerCase()}` });
+                }
+
+                await this.checkSlotAvailability(data.scheduleDate, data.period!, quota.limit);
+            }
+        }
+
         return await prisma.neuteringAppointment.create({
             data: {
                 userId,
                 petId: data.petId,
                 status: neuteringStatus,
+                scheduleDate: data.scheduleDate,
+                period: data.period,
                 medicalRecord: {
                     create: {
                         petId: data.petId,
@@ -190,7 +260,6 @@ export const neuteringService = {
                 status: { in: ["PENDING", "CONFIRMED", "AWAITING_EXAMS", "COMPLETED"] }
             }
         });
-
 
         if (count >= limit) {
             throw new HTTPException(400, { message: "No more slots available for this date and period" });
@@ -246,8 +315,8 @@ export const neuteringService = {
                 user: { select: { name: true, lastName: true, email: true, phone: true } }
             },
             orderBy: [
-                { scheduleDate: 'desc' }, /* most recent comes first (confirmed, completed and no_show) */
-                { createdAt: 'desc' } /* pending, awaiting_exams and cancelled has no date, so the oldest created comes first */
+                { createdAt: 'desc' }, /* pending, awaiting_exams and cancelled has no date, so the oldest created comes first */
+                { scheduleDate: 'desc' } /* most recent comes first (confirmed, completed and no_show) */
             ],
             skip: skip,
             take: limit + 1, // O truque N+1
