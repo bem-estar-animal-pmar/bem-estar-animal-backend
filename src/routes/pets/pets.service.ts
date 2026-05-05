@@ -116,7 +116,20 @@ export const petsService = {
         const existingPet = await prisma.pet.findUnique({
             where: { id: petId },
             include: {
-                owner: { select: { name: true, lastName: true, email: true, phone: true } }
+                owner: { 
+                    select: { 
+                        name: true, 
+                        lastName: true, 
+                        email: true, 
+                        phone: true, 
+                        cep: true,
+                        street: true, 
+                        neighborhood: true,
+                        city: true,
+                        state: true,
+                        number: true
+                    } 
+                }
             },
         });
 

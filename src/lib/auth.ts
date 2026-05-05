@@ -1,15 +1,13 @@
 import { betterAuth } from "better-auth";
 
-
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { prisma } from "./prisma.js";
-
 
 import { APIError } from "better-auth";
 import { createAuthMiddleware } from "better-auth/api";
 import { z } from "zod";
 import { cpf } from "cpf-cnpj-validator";
-
+import { CURRENT_PRIVACY_POLICY_VERSION, CURRENT_TERMS_OF_SERVICE_VERSION } from "../constants/constants.js";
 
 export const userRegisterSchema = z.object({
     password: z.string().trim()
@@ -38,8 +36,20 @@ export const userRegisterSchema = z.object({
     cep: z.string()
         .regex(/^\d{5}-?\d{3}$/, "Invalid CEP")
         .transform((value) => value.replace(/\D/g, "")), // remove dots and dashes to send only numbers to backend
+    street: z.string().trim()
+        .min(1, "Street is required")
+        .max(200, "Street is expected to have less than 200 characters"),
+    neighborhood: z.string().min(1, "Neighborhood is required")
+        .max(100, "Neighborhood is expected to have less than 100 characters"),
+    city: z.string().trim()
+        .min(1, "City is required")
+        .max(100, "City is expected to have less than 100 characters"),
+    state: z.string().trim()
+        .length(2, "State must be UF (2 characters)"),
+    number: z.string().trim()
+        .min(1, "Number is required")
+        .max(16, "Number is expected to have less than 16 characters")
 });
-
 
 export const userUpdateSchema = z.object({
     name: z.string().trim()
@@ -63,7 +73,6 @@ export const userUpdateSchema = z.object({
         .transform((value) => value.replace(/\D/g, "")), // remove dots and dashes to send only numbers to backend
 });
 
-
 export const passwordUpdateSchema = z.object({
     newPassword: z.string().trim()
         .min(8, "Password is expected to have more than 8 characters")
@@ -79,17 +88,14 @@ export const passwordUpdateSchema = z.object({
 
 });
 
-
 const allowedOrigins = process.env.ALLOWED_CORS_URLS ? JSON.parse(process.env.ALLOWED_CORS_URLS) : ["http://localhost:3000"];
-
 
 const getTrustedOrigins = () => {
     if (process.env.NODE_ENV !== "production") {
-        return ["https://silver-fishstick-v6w9gv6rr6jvh6wj7-3000.app.github.dev"];
+        return ["http://localhost:3000"];
     }
     return allowedOrigins;
 };
-
 
 export const auth = betterAuth({
     database: prismaAdapter(prisma, {
@@ -144,12 +150,74 @@ export const auth = betterAuth({
                 input: true,
                 returned: false
             },
+            street: {
+                type: "string",
+                required: true,
+                input: true,
+                returned: false
+            },
+            neighborhood: {
+                type: "string",
+                required: true,
+                input: true,
+                returned: false
+            },
+            city: {
+                type: "string",
+                required: true,
+                input: true,
+                returned: false
+            },
+            state: {
+                type: "string",
+                required: true,
+                input: true,
+                returned: false
+            },
+            number: {
+                type: "string",
+                required: true,
+                input: true,
+                returned: false
+            },
+            termsAcceptedAt: {
+                type: "date",
+                required: false,
+                input: false, /* Set automatically by DB or server, not frontend */
+                returned: false
+            },
+            termsVersion: { 
+                type: "string", 
+                required: false, 
+                input: true, /* input must be true because we inject this field on the before hook, even being true, our 
+                    zod schema prevents user from sending it from the client */ 
+                returned: false 
+            },
+            privacyAcceptedAt: {
+                type: "date",
+                required: false,
+                input: false, /* Set automatically by DB or server, not frontend */
+                returned: false
+            },
+            privacyVersion: { 
+                type: "string", 
+                required: false, 
+                input: true, /* input must be true because we inject this field on the before hook, even being true, our 
+                    zod schema prevents user from sending it from the client */ 
+                returned: false 
+            },
             blockedUntil: {
                 type: "date",
                 required: false,
                 input: false,     /* user nor admin can set blockedUntil, it automatically goes to true if a status is NO_SHOW */
                 returned: false
             },
+            deletedAt: {
+                type: "date",
+                required: false,
+                input: false,
+                returned: false
+            }
         }
     },
     hooks: {
@@ -169,6 +237,8 @@ export const auth = betterAuth({
                             ...ctx.body,
                             ...validation.data,
                             image: "", /* for now we won't allow users set image urls */
+                            termsVersion: CURRENT_TERMS_OF_SERVICE_VERSION,
+                            privacyVersion: CURRENT_PRIVACY_POLICY_VERSION
                         },
                     }
                 };

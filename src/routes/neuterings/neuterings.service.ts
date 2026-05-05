@@ -234,7 +234,20 @@ export const neuteringService = {
             where: { id: neuteringId },
             include: {
                 pet: { select: { name: true, species: true, ownerId: true, chip: true } },
-                user: { select: { name: true, lastName: true, email: true, phone: true } },
+                user: { 
+                    select: { 
+                        name: true, 
+                        lastName: true, 
+                        email: true, 
+                        phone: true, 
+                        cep: true,
+                        street: true, 
+                        neighborhood: true,
+                        city: true,
+                        state: true,
+                        number: true
+                    } 
+                 },
                 medicalRecord: { select: { id: true, notes: true, history: true} }
             },
         });

@@ -31,10 +31,23 @@ model User {
   role          Role      @default(USER)
   lastName      String
   cpf           String    /* cpf is unique */
-  cep           String
   phone         String
 
+  cep           String
+  street        String
+  neighborhood  String
+  city          String
+  state         String
+  number        String
+
+  termsAcceptedAt     DateTime  @default(now())
+  termsVersion        String    // "v1.0.0"
+  
+  privacyAcceptedAt     DateTime  @default(now())
+  privacyVersion        String    // "v1.0.0"
+
   blockedUntil     DateTime? /* in case user does not show for appointment */
+  deletedAt       DateTime? /* when user request account deletion */
 
   /* relations */
   pets                     Pet[]
