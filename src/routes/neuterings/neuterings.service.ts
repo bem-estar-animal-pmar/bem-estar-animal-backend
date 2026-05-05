@@ -237,7 +237,7 @@ export const neuteringService = {
         const existingNeutering = await prisma.neuteringAppointment.findUnique({
             where: { id: neuteringId },
             include: {
-                pet: { select: { name: true, species: true, ownerId: true, chip: true } },
+                pet: { select: { name: true, species: true, gender: true, breed: true, ownerId: true, chip: true } },
                 user: { 
                     select: { 
                         name: true, 
