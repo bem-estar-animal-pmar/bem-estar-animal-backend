@@ -149,6 +149,8 @@ export const petsService = {
         if (userRole !== "ADMIN") {
             delete data.chip;
             delete data.ownerId;
+            delete data.isNeutered;
+            delete data.allowEmergency;
         }
 
         return await prisma.pet.create({
@@ -184,6 +186,8 @@ export const petsService = {
             delete data.breed;
             delete data.birthDate;
             delete data.coatColor;
+            delete data.isNeutered;
+            delete data.allowEmergency;
         }
 
         return await prisma.pet.update({ 
@@ -194,7 +198,6 @@ export const petsService = {
 
     /* admin only */
     async delete(petId: string, userRole: string) {
-
         if (userRole !== "ADMIN") {
             throw new HTTPException(401, { message: "Unauthorized" });
         }

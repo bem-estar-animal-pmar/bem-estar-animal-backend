@@ -202,6 +202,8 @@ model Pet {
   weight            Float              // kg
   size              PetSize
   coatColor         String             // color
+  isNeutered        Boolean   @default(false)
+  allowEmergency    Boolean   @default(false) /* field for admins to create pets and set to allow owners to request emergencies */
   
   ownerId           String
   owner             User               @relation(fields: [ownerId], references: [id])

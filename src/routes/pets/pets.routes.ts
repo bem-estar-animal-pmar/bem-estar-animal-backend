@@ -33,8 +33,8 @@ app.get('/adoption', async (ctx) => {
 
 app.use('*', authMiddleware);
 
-/* @desc list the current user's pets with filtering
-   @route GET https://example.com/api/pets/me?name=Rex&species=DOG&breed=pitbull
+/* @desc list the current user's pet@route GET https://example.com/api/pets/me?name=Rex&species=DOG&breed=pitbulls with filtering
+   
    @access private (USER, ADMIN) */
 app.get('/me', async (ctx) => {
     const user = ctx.get("user")!; /* authMiddle already make sure 'user' exists */

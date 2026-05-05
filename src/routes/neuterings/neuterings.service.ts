@@ -19,7 +19,6 @@ change the day and cause bugs */
 
 /* it is ok to not allow admin creates neutering requests for other users, because user is meant to attatch their pet
 to the request on the moment of creation */
-
 export const neuteringService = {
     async create(userId: string, data: CreateNeuteringInput) {
         const pet = await prisma.pet.findUnique({
@@ -48,7 +47,7 @@ export const neuteringService = {
             }
         });
 
-        if (activeAppointment) {
+        if (activeAppointment || pet.isNeutered) {
             throw new HTTPException(400, { message: "This pet already has an active neutering appointment or is already neutered" });
         }
 
@@ -294,11 +293,9 @@ export const neuteringService = {
             throw new HTTPException(401, { message: "Unauthorized" });
         }
 
-
         const limit = filters.limit;
         const page = filters.page;
         const skip = (page - 1) * limit;
-
 
         const appointments = await prisma.neuteringAppointment.findMany({
             where: {
@@ -322,14 +319,11 @@ export const neuteringService = {
             take: limit + 1, // O truque N+1
         });
 
-
         const hasNextPage = appointments.length > limit;
-
 
         if (hasNextPage) {
             appointments.pop();
         }
-
 
         return {
             data: appointments,
@@ -386,12 +380,10 @@ export const neuteringService = {
             };
         }
 
-
         /* rule: if admin set as NO_SHOW, we automatically block the user for a month */
         if (data.status === "NO_SHOW" && appointment.status !== "NO_SHOW") {
             const blockUntilDate = new Date();
             blockUntilDate.setDate(blockUntilDate.getDate() + 30); /* add 30 days */
-
 
             /* we use transaction to update appointment and user status at the same time */
             return await prisma.$transaction([
@@ -415,6 +407,23 @@ export const neuteringService = {
             throw new HTTPException(403, { message: "To confirm a neutering appointment you must set a date." });
         }
 
+        if (data.status === "COMPLETED") {
+            return await prisma.$transaction([
+                prisma.neuteringAppointment.update({
+                    where: { id: appointmentId },
+                    data: {
+                        ...data,
+                        medicalRecord: medicalRecordUpdate
+                    }
+                }),
+                prisma.pet.update({
+                    where: { id: appointment.petId },
+                    data: { 
+                        isNeutered: true,
+                    }
+                })
+            ]);
+        }
 
         /* update for when status is !== NO_SHOW */
         return await prisma.neuteringAppointment.update({
@@ -441,16 +450,13 @@ export const neuteringService = {
             include: { medicalRecord: true }
         });
 
-
         if (!appointment) {
             throw new HTTPException(404, { message: "Appointment not found" });
         }
 
-
         if (appointment.userId !== userId && user.role !== "ADMIN") {
             throw new HTTPException(403, { message: "You can only cancel your own appointments" });
         }
-
 
         if (appointment.status === "COMPLETED" || appointment.status === "CANCELLED" || appointment.status === "NO_SHOW") {
             throw new HTTPException(400, { message: `Cannot cancel an appointment with status ${appointment.status}` });

@@ -9,28 +9,26 @@ other users (and create pets for other users) to any emergency request because t
 /* they also should be able to create emergency requests for themselves (stray animals they found) */
 
 export const emergencyService = {
-   
+
     async create(userId: string, userRole: string, data: CreateEmergencyInput) {
         const user = await prisma.user.findUnique({
             where: { id: userId }
         });
 
-
         if (!user) {
             throw new HTTPException(404, { message: "User not found" });
         }
 
-
         if (user.blockedUntil && user.blockedUntil > new Date()) {
-            throw new HTTPException(403, { message: `User is blocked until ${user.blockedUntil.toLocaleDateString()}` });
+            if (user.role !== "ADMIN") {
+                throw new HTTPException(403, { message: `User is blocked until ${user.blockedUntil.toLocaleDateString()}` });
+            }
         }
-
 
         if (userRole !== "ADMIN") {
             delete data.scheduleDate;
             delete data.period;
         }
-
 
         let resultSpecies = data.species;
         if (data.petId) {
@@ -43,9 +41,11 @@ export const emergencyService = {
             if (petExists.ownerId != userId && userRole != "ADMIN") {
                 throw new HTTPException(401, { message: "You are not allowed to create an emergency appointment for this pet" });
             }
+            if (petExists.allowEmergency === false && userRole != "ADMIN") {
+                throw new HTTPException(401, { message: "This pet is not allowed to emergency request." });
+            }
             resultSpecies = petExists.species; // if user selected a pet pass down the species from the pet to prevent inconsistency
         }
-
 
         const nowInBrazilShort = new Date().toLocaleString("pt-BR", {
             timeZone: "America/Sao_Paulo",
@@ -53,10 +53,8 @@ export const emergencyService = {
             timeStyle: "short"
         });
 
-
         const creator = userRole === "ADMIN" ? `pelo administrador ${user.name}` : "pelo usuário";
         const initialHistory = `[${nowInBrazilShort}] Pedido criado com status ${MEDICAL_RECORDS_MAP["PENDING"]} ${creator}.`;
-
 
         return await prisma.emergencyAppointment.create({
             data: {
@@ -75,7 +73,6 @@ export const emergencyService = {
         });
     },
 
-
     async listByUser(userId: string, filters?: ListEmergenciesQueryInput) {
         return await prisma.emergencyAppointment.findMany({
             where: {
@@ -84,12 +81,11 @@ export const emergencyService = {
                 species: filters?.species,
             },
             include: {
-                pet: { select: { id: true, name: true } } /* if it is a completed (or already have pet registered) appointment, we include the pet */
+                pet: { select: { id: true, name: true, allowEmergency: true } } /* if it is a completed (or already have pet registered) appointment, we include the pet */
             },
             orderBy: { createdAt: 'desc' } /* ordered by creation date because pending emergencies does not have scheduleDate */
         });
     },
-
 
     /* admin only */
     async list(userRole: string, filters: ListEmergenciesQueryInput) {
@@ -111,7 +107,7 @@ export const emergencyService = {
             },
             include: {
                 user: { select: { name: true, phone: true, email: true } },
-                pet: { select: { id: true, name: true } }
+                pet: { select: { id: true, name: true, allowEmergency: true } }
             },
             orderBy: [
                 { scheduleDate: 'desc' }, /* most recent comes first (confirmed, completed and no_show) */
@@ -129,7 +125,6 @@ export const emergencyService = {
             appointments.pop();
         }
 
-
         return {
             data: appointments,
             meta: {
@@ -140,7 +135,6 @@ export const emergencyService = {
             }
         };
     },
-
 
     /* admin only */
     async updateStatus(appointmentId: string, userId: string, data: UpdateEmergencyStatusInput) {
@@ -174,7 +168,6 @@ export const emergencyService = {
             }
         }
 
-
         /* Prepare the history log if the status is changing and a medical record exists */
         let medicalRecordUpdate = undefined;
         if (data.status && data.status !== appointment.status && appointment.medicalRecord) {
@@ -203,7 +196,6 @@ export const emergencyService = {
             const blockUntilDate = new Date();
             blockUntilDate.setDate(blockUntilDate.getDate() + 30);
 
-
             return await prisma.$transaction([
                 prisma.emergencyAppointment.update({
                     where: { id: appointmentId },
@@ -218,7 +210,6 @@ export const emergencyService = {
                 })
             ]);
         }
-
 
         /* rule: you cannot confirm  appointments without date */
         if ((data.status === "CONFIRMED") && !data.scheduleDate && !appointment.scheduleDate) {

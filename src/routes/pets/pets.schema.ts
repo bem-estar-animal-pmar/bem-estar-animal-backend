@@ -24,6 +24,10 @@ export const createPetSchema = z.object({
     coatColor: z.string()
         .min(1, "Coat color is required")
         .max(28, "Coat color must be less than 28 characters"),
+    isNeutered: z.coerce.boolean()
+        .optional(),
+    allowEmergency: z.coerce.boolean()
+        .optional(),
     birthDate: z.coerce.date()
         .transform(date => 
             new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))
@@ -61,6 +65,10 @@ export const updatePetSchema = z.object({
         .optional(),
     coatColor: z.string()
         .max(28)
+        .optional(),
+    isNeutered: z.coerce.boolean()
+        .optional(),
+    allowEmergency: z.coerce.boolean()
         .optional(),
     birthDate: z.coerce.date()
         .transform(date => 

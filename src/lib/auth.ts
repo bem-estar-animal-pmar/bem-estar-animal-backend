@@ -1,12 +1,15 @@
 import { betterAuth } from "better-auth";
 
+
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { prisma } from "./prisma.js";
+
 
 import { APIError } from "better-auth";
 import { createAuthMiddleware } from "better-auth/api";
 import { z } from "zod";
 import { cpf } from "cpf-cnpj-validator";
+
 
 export const userRegisterSchema = z.object({
     password: z.string().trim()
@@ -29,13 +32,14 @@ export const userRegisterSchema = z.object({
         .transform((value) => value.replace(/\D/g, "")), // remove dots and dashes to send only numbers to backend
     cpf: z.string().trim()
         .refine((value) => cpf.isValid(value), {
-            message: "Invalid CPF", 
+            message: "Invalid CPF",
         })
         .transform((val) => val.replace(/\D/g, "")), // remove dots and dashes to send only numbers to backend
     cep: z.string()
         .regex(/^\d{5}-?\d{3}$/, "Invalid CEP")
         .transform((value) => value.replace(/\D/g, "")), // remove dots and dashes to send only numbers to backend
 });
+
 
 export const userUpdateSchema = z.object({
     name: z.string().trim()
@@ -51,13 +55,14 @@ export const userUpdateSchema = z.object({
         .transform((value) => value.replace(/\D/g, "")), // remove dots and dashes to send only numbers to backend
     cpf: z.string().trim()
         .refine((value) => cpf.isValid(value), {
-            message: "Invalid CPF", 
+            message: "Invalid CPF",
         })
         .transform((val) => val.replace(/\D/g, "")), // remove dots and dashes to send only numbers to backend
     cep: z.string()
         .regex(/^\d{5}-?\d{3}$/, "Invalid CEP")
         .transform((value) => value.replace(/\D/g, "")), // remove dots and dashes to send only numbers to backend
 });
+
 
 export const passwordUpdateSchema = z.object({
     newPassword: z.string().trim()
@@ -71,16 +76,20 @@ export const passwordUpdateSchema = z.object({
         .min(1, "Token can't be blank")
         .max(200, "Token is expected to have less than 200 characters"),
 
+
 });
+
 
 const allowedOrigins = process.env.ALLOWED_CORS_URLS ? JSON.parse(process.env.ALLOWED_CORS_URLS) : ["http://localhost:3000"];
 
+
 const getTrustedOrigins = () => {
     if (process.env.NODE_ENV !== "production") {
-        return ["http://localhost:3000"];
+        return ["https://silver-fishstick-v6w9gv6rr6jvh6wj7-3000.app.github.dev"];
     }
     return allowedOrigins;
 };
+
 
 export const auth = betterAuth({
     database: prismaAdapter(prisma, {
@@ -98,7 +107,7 @@ export const auth = betterAuth({
         sendOnSignUp: true, /* when register, it will automatically send an email */
         autoSignInAfterVerification: true,/* user sign in after verification */
         sendVerificationEmail: async ({ user, url, token }, request) => {
-            /* here is where we should add an e-mail provider to send a mail with the 
+            /* here is where we should add an e-mail provider to send a mail with the
             verification url to the user, for now, we just log on the console */
             console.log(url)
         }
@@ -108,7 +117,7 @@ export const auth = betterAuth({
             role: {
                 type: "string",
                 required: false,
-                defaultValue: "USER", 
+                defaultValue: "USER",
                 input: false, /* never let the frontend set its own role */
             },
             lastName: {
@@ -139,7 +148,7 @@ export const auth = betterAuth({
                 type: "date",
                 required: false,
                 input: false,     /* user nor admin can set blockedUntil, it automatically goes to true if a status is NO_SHOW */
-                returned: false 
+                returned: false
             },
         }
     },
@@ -148,7 +157,7 @@ export const auth = betterAuth({
             if (ctx.path === "/sign-up/email") { /* this guarantees this middleware only runs on register by e-mail route */
                 const body = ctx.body;
                 const validation = userRegisterSchema.safeParse(body);
-                if (!validation.success) { 
+                if (!validation.success) {
                     throw new APIError("BAD_REQUEST", {
                         message: validation.error.issues[0].message
                     });
@@ -164,7 +173,7 @@ export const auth = betterAuth({
                     }
                 };
             }
-            
+           
             if (ctx.path === "/reset-password") { /* this is for the new reset password route, we should parse the same password rules here */
                 const body = ctx.body;
                 const validation = passwordUpdateSchema.safeParse(body);
@@ -174,6 +183,7 @@ export const auth = betterAuth({
                     });
                 }
             }
+
 
             if (ctx.path === "/update-user") { /* this guarantees this middleware only runs when user tries to udpate their data */
                 const body = ctx.body;
