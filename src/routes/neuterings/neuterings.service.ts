@@ -230,6 +230,10 @@ export const neuteringService = {
 
 
     async getById(neuteringId: string, userId: string, userRole: string) {
+        if (userRole !== "ADMIN") {
+            throw new HTTPException(401, { message: "Unauthorized" });
+        }
+
         const existingNeutering = await prisma.neuteringAppointment.findUnique({
             where: { id: neuteringId },
             include: {
@@ -253,10 +257,6 @@ export const neuteringService = {
         });
 
         if (!existingNeutering) {
-            throw new HTTPException(404, { message: "Neutering not found" });
-        }
-
-        if (existingNeutering.userId !== userId && userRole !== "ADMIN") {
             throw new HTTPException(404, { message: "Neutering not found" });
         }
 
