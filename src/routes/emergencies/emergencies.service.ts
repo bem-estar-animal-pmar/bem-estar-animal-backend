@@ -83,7 +83,7 @@ export const emergencyService = {
         return await prisma.emergencyAppointment.findMany({
             where: {
                 userId,
-                status: filters?.status,
+                status: filters?.status ? { in: filters.status } : undefined,
                 species: filters?.species,
             },
             include: {
@@ -108,12 +108,12 @@ export const emergencyService = {
         const appointments = await prisma.emergencyAppointment.findMany({
             where: {
                 userId: filters.userId,
-                status: filters.status,
+                status: filters?.status ? { in: filters.status } : undefined,
                 species: filters.species,
             },
             include: {
-                user: { select: { name: true, phone: true, email: true } },
-                pet: { select: { id: true, name: true, allowEmergency: true } }
+                user: { select: { name: true, lastName: true, phone: true, email: true } },
+                pet: { select: { id: true, name: true,  allowEmergency: true } }
             },
             orderBy: [
                 { scheduleDate: 'desc' }, /* most recent comes first (confirmed, completed and no_show) */

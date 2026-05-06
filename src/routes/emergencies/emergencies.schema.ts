@@ -29,8 +29,23 @@ export const createEmergencySchema = z.object({
 });
 
 export const listEmergenciesQuerySchema = z.object({
-    status: z.enum(["PENDING", "CONFIRMED", "COMPLETED", "NO_SHOW"])
-        .optional(),
+    status: z.preprocess(
+        (val) => {
+            if (typeof val === "string") {
+                return val.split(",").map(s => s.trim()).filter(Boolean);
+            }
+            return val;
+        },
+        z.array(
+            z.enum([
+                "PENDING",
+                "CONFIRMED",
+                "COMPLETED",
+                "CANCELLED",
+                "NO_SHOW"
+            ])
+        )
+    ).optional(),
     userId: z.string()
         .optional(), /* admin-only */
     species: z.enum(["DOG", "CAT"])
