@@ -282,7 +282,9 @@ model EmergencyAppointment {
   id              String          @id @default(uuid())
   status          EmergencyStatus @default(PENDING)
 
+  name            String
   species         PetSpecies
+  gender          PetGender?
   size            PetSize
   description     String?         @db.VarChar(1000)
   

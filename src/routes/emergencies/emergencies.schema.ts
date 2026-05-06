@@ -1,7 +1,12 @@
 import { z } from "zod";
 
 export const createEmergencySchema = z.object({
+     name: z.string()
+        .min(1, "Name cannot be empty")
+        .max(28, "Name must be less than 28 characters"),
     species: z.enum(["DOG", "CAT"]),
+    gender: z.enum(["MALE", "FEMALE"])
+        .optional(),
     size: z.enum(["SMALL", "MEDIUM", "LARGE"]),
     description: z.string()
         .min(10, "Please provide more details about the emergency")

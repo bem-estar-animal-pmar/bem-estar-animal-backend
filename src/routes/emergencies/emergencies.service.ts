@@ -9,7 +9,6 @@ other users (and create pets for other users) to any emergency request because t
 /* they also should be able to create emergency requests for themselves (stray animals they found) */
 
 export const emergencyService = {
-
     async create(userId: string, userRole: string, data: CreateEmergencyInput) {
         const user = await prisma.user.findUnique({
             where: { id: userId }
@@ -30,7 +29,8 @@ export const emergencyService = {
             delete data.period;
         }
 
-        let resultSpecies = data.species;
+        let {name, species, gender, size} = {...data}
+        
         if (data.petId) {
             const petExists = await prisma.pet.findUnique({
                 where: { id: data.petId }
@@ -44,7 +44,10 @@ export const emergencyService = {
             if (petExists.allowEmergency === false && userRole != "ADMIN") {
                 throw new HTTPException(401, { message: "This pet is not allowed to emergency request." });
             }
-            resultSpecies = petExists.species; // if user selected a pet pass down the species from the pet to prevent inconsistency
+            name = petExists.name;
+            species = petExists.species;
+            gender = petExists.gender;
+            size = petExists.size;
         }
 
         const nowInBrazilShort = new Date().toLocaleString("pt-BR", {
@@ -53,7 +56,7 @@ export const emergencyService = {
             timeStyle: "short"
         });
 
-        const creator = userRole === "ADMIN" ? `pelo administrador ${user.name}` : "pelo usuário";
+        const creator = userRole === "ADMIN" ? `pelo administrador ${user.name}` : "pelo usuário ${user.name}";
         const initialHistory = `[${nowInBrazilShort}] Pedido criado com status ${MEDICAL_RECORDS_MAP["PENDING"]} ${creator}.`;
 
         return await prisma.emergencyAppointment.create({
@@ -61,7 +64,10 @@ export const emergencyService = {
                 ...data,
                 userId,
                 status: "PENDING",
-                species: resultSpecies,
+                name: name,
+                species: species,
+                gender: gender,
+                size: size,
                 medicalRecord: {
                     create: {
                         petId: data.petId || undefined, /* can be undefined if it's a stray animal */
@@ -117,9 +123,7 @@ export const emergencyService = {
             take: limit + 1, // O truque N+1
         });
 
-
         const hasNextPage = appointments.length > limit;
-
 
         if (hasNextPage) {
             appointments.pop();
@@ -215,7 +219,6 @@ export const emergencyService = {
         if ((data.status === "CONFIRMED") && !data.scheduleDate && !appointment.scheduleDate) {
             throw new HTTPException(403, { message: "To confirm an emergency appointment you must set a date." });
         }
-
 
         return await prisma.emergencyAppointment.update({
             where: { id: appointmentId },
