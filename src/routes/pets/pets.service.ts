@@ -1,5 +1,5 @@
 import { prisma } from "../../lib/prisma.js";
-import type { CreatePetInput, UpdatePetInput, ListPetsParamsInput, ListPetsForAdoptionParamsInput } from "./pets.schema";
+import type { CreatePetInput, AdminCreatePetInput, AdminUpdatePetInput, ListPetsParamsInput, ListPetsForAdoptionParamsInput } from "./pets.schema";
 import { HTTPException } from "hono/http-exception";
 import { PETS_PER_USER_LIMIT } from "../../constants/constants.js"
 
@@ -11,7 +11,6 @@ because adoptions can happen to people who do not necessary have an account. If 
 to the pet, the admins should do it manually and update the pet status to HAS_OWNER (or maybe create a diff pet/user combo (better)) */
 
 export const petsService = {
-
     /* public, lists pets for adoption so not logged users can create adopt requests */
     async listForAdoption(filters?: ListPetsForAdoptionParamsInput) {
         return await prisma.pet.findMany({
@@ -30,6 +29,7 @@ export const petsService = {
                 weight: true,
                 coatColor: true,
                 birthDate: true,
+                isNeutered: true,
                 /* we exclude ownerId, chip, createdAt, updatedAt, deletedAt from the result because
                 the returned data is meant just to be shown to public users */
             },
@@ -37,9 +37,125 @@ export const petsService = {
         });
     },
 
-    /* admin only */
-    async list(userRole: string, filters: ListPetsParamsInput) {
+    /* user, admin services */
 
+    async listByUser(userId: string, userRole: string, filters?: ListPetsParamsInput) {
+        return await prisma.pet.findMany({
+            where: {
+                ownerId: userId,
+                species: filters?.species, 
+                gender: filters?.gender,
+                deletedAt: userRole === "USER" ? null : undefined,
+                adoptionStatus: userRole === "ADMIN" ? filters?.adoptionStatus : undefined,
+                name: filters?.name ? {
+                    contains: filters.name,
+                    mode: 'insensitive'
+                } : undefined,
+                
+                breed: filters?.breed ? {
+                    equals: filters.breed,
+                } : undefined
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+    },
+
+    /* admin can request pet from a user, users can only request their own */
+    async getById(petId: string, userId: string, userRole: string) {
+        const existingPet = await prisma.pet.findUnique({
+            where: { id: petId },
+            include: {
+                owner: { 
+                    select: { 
+                        name: true, 
+                        lastName: true, 
+                        email: true, 
+                        phone: true, 
+                        cep: true,
+                        street: true, 
+                        neighborhood: true,
+                        city: true,
+                        state: true,
+                        number: true
+                    } 
+                }
+            },
+        });
+
+        if (!existingPet) {
+            throw new HTTPException(404, { message: "Pet not found" });
+        }
+
+        if (existingPet.ownerId !== userId && userRole !== "ADMIN") {
+            throw new HTTPException(404, { message: "Pet not found" });
+        }
+
+        return existingPet;
+    },
+
+    async create(userId: string, data: CreatePetInput) {
+        const petCount = await prisma.pet.count({
+            where: {
+                ownerId: userId,
+                deletedAt: null
+            }
+        });
+
+        if (petCount >= PETS_PER_USER_LIMIT) {
+            throw new HTTPException(400, { message: "Maximum pet limit per user reached" });
+        }
+
+        return await prisma.pet.create({
+            data: {
+                ...data,
+                ownerId: userId
+            }
+        });
+    },
+
+    /* admin only services */
+
+    /* admins are allowed to create pets for other users, mostly happens after an emergency completion */
+    async createByAdmin(targetUserId: string, userRole: string, data: AdminCreatePetInput) {
+        if (userRole !== "ADMIN") {
+            throw new HTTPException(401, { message: "Unauthorized" });
+        }
+        const userExists = await prisma.user.findUnique({
+            where: {
+                id: targetUserId
+            }
+        })
+        if (!userExists) {
+            throw new HTTPException(401, { message: "User not found" });
+        }
+        return await prisma.pet.create({
+            data: {
+                ...data,
+                ownerId: targetUserId
+            }
+        });
+    },
+
+    async updateByAdmin(petId: string, userId: string, userRole: string, data: AdminUpdatePetInput) {
+        if (userRole !== "ADMIN") {
+            throw new HTTPException(401, { message: "Unauthorized" });
+        }
+        const existingPet = await prisma.pet.findUnique({
+            where: { id: petId }
+        });
+
+        if (!existingPet) {
+            throw new HTTPException(404, { message: "Pet not found" });
+        }
+
+        return await prisma.pet.update({ 
+            where: { id: petId },
+            data: { ...data }
+        });
+    },
+
+    /* admin only */
+    async listAll(userRole: string, filters: ListPetsParamsInput) {
         if (userRole !== "ADMIN") {
             throw new HTTPException(401, { message: "Unauthorized" });
         }
@@ -89,124 +205,6 @@ export const petsService = {
                 hasPrevPage: page > 1
             }
         };
-    },
-
-    async listByUser(userId: string, userRole: string, filters?: ListPetsParamsInput) {
-        return await prisma.pet.findMany({
-            where: {
-                ownerId: userId,
-                species: filters?.species, 
-                gender: filters?.gender,
-                deletedAt: userRole === "USER" ? null : undefined,
-                adoptionStatus: userRole === "ADMIN" ? filters?.adoptionStatus : undefined,
-                name: filters?.name ? {
-                    contains: filters.name,
-                    mode: 'insensitive'
-                } : undefined,
-                
-                breed: filters?.breed ? {
-                    equals: filters.breed,
-                } : undefined
-            },
-            orderBy: { createdAt: 'desc' }
-        });
-    },
-
-    async getById(petId: string, userId: string, userRole: string) {
-        const existingPet = await prisma.pet.findUnique({
-            where: { id: petId },
-            include: {
-                owner: { 
-                    select: { 
-                        name: true, 
-                        lastName: true, 
-                        email: true, 
-                        phone: true, 
-                        cep: true,
-                        street: true, 
-                        neighborhood: true,
-                        city: true,
-                        state: true,
-                        number: true
-                    } 
-                }
-            },
-        });
-
-        if (!existingPet) {
-            throw new HTTPException(404, { message: "Pet not found" });
-        }
-
-        if (existingPet.ownerId !== userId && userRole !== "ADMIN") {
-            throw new HTTPException(404, { message: "Pet not found" });
-        }
-
-        return existingPet;
-    },
-
-    async create(userId: string, userRole: string, data: CreatePetInput) {
-        /* if the requester is an ADMIN and they sent a ownerId, they are trying to create a pet for another user */
-        const targetOwnerId = (userRole === "ADMIN" && data.ownerId)  ? data.ownerId : userId;
-
-        const petCount = await prisma.pet.count({
-            where: {
-                ownerId: targetOwnerId,
-                deletedAt: null
-            }
-        });
-
-        if (petCount >= PETS_PER_USER_LIMIT && userRole !== "ADMIN") {
-            throw new HTTPException(400, { message: "Maximum pet limit per user reached" });
-        }
-
-        if (userRole !== "ADMIN") {
-            delete data.chip;
-            delete data.ownerId;
-            delete data.isNeutered;
-            delete data.allowEmergency;
-        }
-
-        return await prisma.pet.create({
-            data: {
-                ...data,
-                ownerId: targetOwnerId
-            }
-        });
-    },
-
-    /* users cannot update several data about pets to prevent them to confuse the clinic owners, when you create, if
-    you made some mistake you should contact them to change */
-    async update(petId: string, userId: string, userRole: string, data: UpdatePetInput) {
-        const existingPet = await prisma.pet.findUnique({
-            where: { id: petId }
-        });
-
-        if (!existingPet) {
-            throw new HTTPException(404, { message: "Pet not found" });
-        }
-
-        if (existingPet.ownerId !== userId && userRole !== "ADMIN") {
-            throw new HTTPException(403, { message: "You are not allowed to update this pet" });
-        }
-
-        if (existingPet.deletedAt !== null && userRole !== "ADMIN") {
-            throw new HTTPException(403, { message: "You are not allowed to update this pet" });
-        }
-
-        if (userRole !== "ADMIN") {
-            delete data.adoptionStatus;
-            delete data.chip;
-            delete data.breed;
-            delete data.birthDate;
-            delete data.coatColor;
-            delete data.isNeutered;
-            delete data.allowEmergency;
-        }
-
-        return await prisma.pet.update({ 
-            where: { id: petId },
-            data: { ...data }
-        });
     },
 
     /* admin only */

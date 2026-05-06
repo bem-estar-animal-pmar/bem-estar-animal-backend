@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { authMiddleware, type AuthEnv } from '../../middleware/authHandler';
 import { HTTPException } from 'hono/http-exception';
 import { petsService } from "./pets.service";
-import { createPetSchema, listPetsQuerySchema, updatePetSchema, listPetsForAdoptionQuerySchema } from './pets.schema';
+import { createPetSchema, adminCreatePetSchema, listPetsQuerySchema, adminUpdatePetSchema, listPetsForAdoptionQuerySchema } from './pets.schema';
 
 const app = new Hono<AuthEnv>()
 
@@ -77,7 +77,7 @@ app.get('/', async (ctx) => {
     const role = user.role ?? "USER"; 
 
     // Pass the entire validated query (which includes page and limit defaults)
-    const result = await petsService.list(role, query);
+    const result = await petsService.listAll(role, query);
 
     return ctx.json(result, 200);
 });
@@ -109,9 +109,27 @@ app.post('/', async (ctx) => {
 		throw new HTTPException(400, {  message: "Validation Error. Invalid body", cause: validation.error })
     }
 
-	const role = user.role ?? "USER"; 
+	const newPet = await petsService.create(user.id, validation.data);
+	return ctx.json(newPet, 201);
+})
 
-	const newPet = await petsService.create(user.id, role, validation.data);
+/* @desc admin create a new pet for user, skipping any limit rules
+   @route POST https://example.com/api/pets/admin
+   @access private (ADMIN) */
+app.post('/admin/', async (ctx) => {
+	const user = ctx.get("user")!;
+
+	const body = await ctx.req.json();
+	const validation = adminCreatePetSchema.safeParse(body);
+
+	if (!validation.success) {
+		throw new HTTPException(400, {  message: "Validation Error. Invalid body", cause: validation.error })
+    }
+
+	const role = user.role ?? "USER"; 
+	const targetUserId = validation.data.ownerId || user.id;
+
+	const newPet = await petsService.createByAdmin(targetUserId, role, validation.data);
 	return ctx.json(newPet, 201);
 })
 
@@ -122,7 +140,7 @@ app.patch('/:id', async (ctx) => {
 	const user = ctx.get("user")!;
 
 	const body = await ctx.req.json()
-	const validation = updatePetSchema.safeParse(body)
+	const validation = adminUpdatePetSchema.safeParse(body)
 
 	if (!validation.success) {
 		throw new HTTPException(400, {  message: "Validation Error. Invalid body", cause: validation.error })
@@ -131,7 +149,7 @@ app.patch('/:id', async (ctx) => {
 	const petId = ctx.req.param('id');
 	const role = user.role ?? "USER"; 
 
-	const updatedPet = await petsService.update(petId, user.id, role, validation.data);
+	const updatedPet = await petsService.updateByAdmin(petId, user.id, role, validation.data);
 	return ctx.json(updatedPet, 200);
 })
 
