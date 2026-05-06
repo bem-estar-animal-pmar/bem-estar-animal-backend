@@ -44,6 +44,21 @@ export const emergencyService = {
             if (petExists.allowEmergency === false && userRole != "ADMIN") {
                 throw new HTTPException(401, { message: "This pet is not allowed to emergency request." });
             }
+            
+            /* pets with active emergency appointments cannot create another request */
+            const activeAppointment = await prisma.emergencyAppointment.findFirst({
+                where: {
+                    petId: data.petId,
+                    status: {
+                        in: ["PENDING", "CONFIRMED"]
+                    }
+                }
+            });
+
+            if (activeAppointment) {
+                throw new HTTPException(400, { message: "This pet already has an active emergency appointment" });
+            }
+
             name = petExists.name;
             species = petExists.species;
             gender = petExists.gender;
