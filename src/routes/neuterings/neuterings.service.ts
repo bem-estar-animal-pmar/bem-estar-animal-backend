@@ -1,6 +1,6 @@
 import { prisma } from "../../lib/prisma.js";
 import { HTTPException } from "hono/http-exception";
-import type { CreateNeuteringInput, UpdateNeuteringStatusInput, ListNeuteringsQueryInput } from "./neuterings.schema";
+import type { CreateNeuteringInput, AdminCreateNeuteringInput, UpdateNeuteringStatusInput, ListNeuteringsQueryInput } from "./neuterings.schema";
 import {
     MAX_PETS_PER_MONTH_BY_CPF,
     MAX_DAY_LIMIT_FOR_USER_CANCEL_NEUTERING_REQUEST,
@@ -20,6 +20,71 @@ change the day and cause bugs */
 /* it is ok to not allow admin creates neutering requests for other users, because user is meant to attatch their pet
 to the request on the moment of creation */
 export const neuteringService = {
+
+    /* user, admin services */
+
+    /* count neutering appointments per day and period and return AVAILABLE COUNT */
+    async getCalendarCounts(startDate: Date, endDate: Date) {
+        const counts = await prisma.neuteringAppointment.groupBy({
+            by: ['scheduleDate', 'period'],
+            _count: {
+                id: true
+            },
+            where: {
+                scheduleDate: {
+                    gte: startDate,
+                    lte: endDate
+                },
+                status: { in: ["PENDING", "CONFIRMED", "AWAITING_EXAMS", "COMPLETED"] },
+                period: { not: null }
+            }
+        });
+
+        /* map all ocuped days */
+        const filledSlots = counts.reduce((acc, curr) => {
+            if (!curr.scheduleDate || !curr.period) return acc;
+            
+            const dateStr = curr.scheduleDate.toISOString().split('T')[0];
+            if (!acc[dateStr]) acc[dateStr] = { MORNING: 0, AFTERNOON: 0 };
+            
+            acc[dateStr][curr.period] = curr._count.id;
+            return acc;
+        }, {} as Record<string, Record<string, number>>);
+
+        const calendarData: Record<string, { MORNING: number; AFTERNOON: number }> = {};
+        
+        let currentDate = new Date(startDate);
+
+        /* iterate through each day */
+        while (currentDate <= endDate) {
+            const dateStr = currentDate.toISOString().split('T')[0];
+            const dayOfWeek = currentDate.getUTCDay();
+
+            /* if day is saturday or sunday, available slots is always 0 */
+            if (dayOfWeek === 0 || dayOfWeek === 6) {
+                calendarData[dateStr] = { MORNING: 0, AFTERNOON: 0 };
+            } else {
+                const isFriday = dayOfWeek === 5;
+                const dailyQuota = isFriday ? NEUTERING_QUOTAS.FRIDAY : NEUTERING_QUOTAS.WEEKDAY;
+
+                /* get filled count */
+                const filledMorning = filledSlots[dateStr]?.MORNING || 0;
+                const filledAfternoon = filledSlots[dateStr]?.AFTERNOON || 0;
+
+                /* subtract to the quota limit and save available count */
+                calendarData[dateStr] = {
+                    MORNING: Math.max(0, dailyQuota.MORNING.limit - filledMorning),
+                    AFTERNOON: Math.max(0, dailyQuota.AFTERNOON.limit - filledAfternoon)
+                };
+            }
+
+            /* advances 1 day */
+            currentDate.setUTCDate(currentDate.getUTCDate() + 1);
+        }
+
+        return calendarData;
+    },
+
     async create(userId: string, data: CreateNeuteringInput) {
         const pet = await prisma.pet.findUnique({
             where: { id: data.petId }
@@ -30,7 +95,7 @@ export const neuteringService = {
         })
 
         if (!user || !pet) {
-            throw new HTTPException(404, { message: "User or Pet not found" });
+            throw new HTTPException(404, { message: "User or pet not found" });
         }
 
         if (pet.ownerId !== userId) {
@@ -85,7 +150,7 @@ export const neuteringService = {
         }
 
         /* constraint: if user is not an admin and animal is not brachycephalic, date and period are mandatory */
-        if (user.role !== "ADMIN" && !isBrachycephalic) {
+        if (!isBrachycephalic) {
             if (!data.scheduleDate || !data.period) {
                 throw new HTTPException(400, { message: "Schedule date and period are required for this pet" });
             }
@@ -98,33 +163,8 @@ export const neuteringService = {
             timeStyle: "short"
         });
 
-        const creator = user.role === "ADMIN" ? `pelo administrador ${user.name}` : "pelo tutor";
+        const creator = `pelo tutor ${user.name}`;
         const initialHistory = `[${nowInBrazilShort}] Pedido criado com status ${MEDICAL_RECORDS_MAP[neuteringStatus]} ${creator}.`;
-
-        /* admins are allowed to skip any rules for neutering request creation */
-        if (user.role === "ADMIN") {
-            return await prisma.neuteringAppointment.create({
-                data: {
-                    userId,
-                    petId: data.petId,
-                    status: neuteringStatus,
-                    scheduleDate: data.scheduleDate,
-                    period: data.period,
-                    medicalRecord: {
-                        create: {
-                            petId: data.petId,
-                            notes: "",
-                            history: initialHistory
-                        }
-                    }
-                },
-                include: { /* return pet data so frontend can show on success screen */
-                    pet: {
-                        select: { name: true, species: true }
-                    }
-                }
-            });
-        }
 
         /* rule 1: if user is blocked by NO_SHOW, don't allow the request */
         if (user.blockedUntil && user.blockedUntil > new Date()) {
@@ -219,65 +259,64 @@ export const neuteringService = {
                         history: initialHistory
                     }
                 }
-            },
-            include: { /* return pet data so frontend can show on success screen */
-                pet: {
-                    select: { name: true, species: true }
-                }
             }
         });
     },
 
-
     async getById(neuteringId: string, userId: string, userRole: string) {
-        if (userRole !== "ADMIN") {
-            throw new HTTPException(401, { message: "Unauthorized" });
-        }
-
         const existingNeutering = await prisma.neuteringAppointment.findUnique({
             where: { id: neuteringId },
             include: {
-                pet: { select: { name: true, species: true, gender: true, breed: true, ownerId: true, chip: true } },
-                user: { 
-                    select: { 
-                        name: true, 
-                        lastName: true, 
-                        email: true, 
-                        phone: true, 
+                pet: {
+                    select: {
+                        name: true,
+                        species: true,
+                        gender: true,
+                        breed: true,
+                        ownerId: true,
+                        chip: true
+                    }
+                },
+                user: {
+                    select: {
+                        name: true,
+                        lastName: true,
+                        email: true,
+                        phone: true,
                         cep: true,
-                        street: true, 
+                        street: true,
                         neighborhood: true,
                         city: true,
                         state: true,
                         number: true
-                    } 
-                 },
-                medicalRecord: { select: { id: true, notes: true, history: true} }
-            },
+                    }
+                },
+                ...(userRole === "ADMIN" && { /* only include medicalRecord if userRole is admin */
+                    medicalRecord: {
+                        select: {
+                            id: true,
+                            notes: true,
+                            history: true
+                        }
+                    }
+                })
+            }
         });
 
         if (!existingNeutering) {
             throw new HTTPException(404, { message: "Neutering not found" });
         }
 
+        // owner authorization
+        if (
+            userRole !== "ADMIN" &&
+            existingNeutering.pet.ownerId !== userId
+        ) {
+            throw new HTTPException(401, { message: "Unauthorized" });
+        }
+
         return existingNeutering;
     },
-
-
-    async checkSlotAvailability(date: Date, period: string, limit: number) {
-        const count = await prisma.neuteringAppointment.count({
-            where: {
-                scheduleDate: date,
-                period: period,
-                status: { in: ["PENDING", "CONFIRMED", "AWAITING_EXAMS", "COMPLETED"] }
-            }
-        });
-
-        if (count >= limit) {
-            throw new HTTPException(400, { message: "No more slots available for this date and period" });
-        }
-    },
-
 
     async listByUser(userId: string, filters?: ListNeuteringsQueryInput) {
         return await prisma.neuteringAppointment.findMany({
@@ -298,156 +337,6 @@ export const neuteringService = {
             ]
         });
     },
-
-
-    /* admin only */
-    async list(userRole: string, filters: ListNeuteringsQueryInput) {
-        if (userRole !== "ADMIN") {
-            throw new HTTPException(401, { message: "Unauthorized" });
-        }
-
-        const limit = filters.limit;
-        const page = filters.page;
-        const skip = (page - 1) * limit;
-
-        const appointments = await prisma.neuteringAppointment.findMany({
-            where: {
-                userId: filters.userId,
-                status: filters?.status ? { in: filters.status } : undefined,
-                petId: filters.petId,
-                scheduleDate: {
-                    gte: filters.startDate,
-                    lte: filters.endDate
-                }
-            },
-            include: {
-                pet: { select: { name: true, species: true, ownerId: true } },
-                user: { select: { name: true, lastName: true, email: true, phone: true } }
-            },
-            orderBy: [
-                { createdAt: 'desc' }, /* pending, awaiting_exams and cancelled has no date, so the oldest created comes first */
-                { scheduleDate: 'desc' } /* most recent comes first (confirmed, completed and no_show) */
-            ],
-            skip: skip,
-            take: limit + 1, // O truque N+1
-        });
-
-        const hasNextPage = appointments.length > limit;
-
-        if (hasNextPage) {
-            appointments.pop();
-        }
-
-        return {
-            data: appointments,
-            meta: {
-                currentPage: page,
-                itemsPerPage: limit,
-                hasNextPage,
-                hasPrevPage: page > 1
-            }
-        };
-    },
-
-    /* admin only */
-    async updateStatus(appointmentId: string, userId: string, data: UpdateNeuteringStatusInput) {
-        const user = await prisma.user.findUnique({
-            where: {id: userId}
-        })
-        if (!user) {
-            throw new HTTPException(401, { message: "Unauthorized" });
-        }
-        if (user.role !== "ADMIN") {
-            throw new HTTPException(401, { message: "Unauthorized" });
-        }
-
-
-        const appointment = await prisma.neuteringAppointment.findUnique({
-            where: { id: appointmentId },
-            include: { medicalRecord: true }
-        });
-
-
-        if (!appointment) {
-            throw new HTTPException(404, { message: "Neutering appointment not found" });
-        }
-   
-        /*repare the history log if the status is changing and a medical record exists */
-        let medicalRecordUpdate = undefined;
-        if (data.status && data.status !== appointment.status && appointment.medicalRecord) {
-            const nowInBrazil = new Date().toLocaleString("pt-BR", {
-                timeZone: "America/Sao_Paulo",
-                dateStyle: "short",
-                timeStyle: "short"
-            });
-
-            const creator = `pelo administrador ${user.name}`;
-            const logEntry = `[${nowInBrazil}] Status alterado de ${MEDICAL_RECORDS_MAP[appointment.status]} para ${MEDICAL_RECORDS_MAP[data.status]} ${creator}`;
-           
-            medicalRecordUpdate = {
-                update: {
-                    history: appointment.medicalRecord.history
-                        ? `${appointment.medicalRecord.history}\n${logEntry}`
-                        : logEntry
-                }
-            };
-        }
-
-        /* rule: if admin set as NO_SHOW, we automatically block the user for a month */
-        if (data.status === "NO_SHOW" && appointment.status !== "NO_SHOW") {
-            const blockUntilDate = new Date();
-            blockUntilDate.setDate(blockUntilDate.getDate() + 30); /* add 30 days */
-
-            /* we use transaction to update appointment and user status at the same time */
-            return await prisma.$transaction([
-                prisma.neuteringAppointment.update({
-                    where: { id: appointmentId },
-                    data: {
-                        ...data,
-                        medicalRecord: medicalRecordUpdate
-                    }
-                }),
-                prisma.user.update({
-                    where: { id: appointment.userId },
-                    data: { blockedUntil: blockUntilDate }
-                })
-            ]);
-        }
-
-
-        /* rule: you cannot confirm  appointments without date */
-        if ((data.status === "CONFIRMED") && !data.scheduleDate && !appointment.scheduleDate) {
-            throw new HTTPException(403, { message: "To confirm a neutering appointment you must set a date." });
-        }
-
-        if (data.status === "COMPLETED") {
-            return await prisma.$transaction([
-                prisma.neuteringAppointment.update({
-                    where: { id: appointmentId },
-                    data: {
-                        ...data,
-                        medicalRecord: medicalRecordUpdate
-                    }
-                }),
-                prisma.pet.update({
-                    where: { id: appointment.petId },
-                    data: { 
-                        isNeutered: true,
-                    }
-                })
-            ]);
-        }
-
-        /* update for when status is !== NO_SHOW */
-        return await prisma.neuteringAppointment.update({
-            where: { id: appointmentId },
-            data: {
-                ...data,
-                medicalRecord: medicalRecordUpdate
-            }
-        });
-    },
-
 
     /* user action: cancel own appointment */
     async cancel(appointmentId: string, userId: string) {
@@ -516,65 +405,242 @@ export const neuteringService = {
         });
     },
 
-    /* admin only: count neutering appointments per day and period and return AVAILABLE COUNT */
-    async getCalendarCounts(startDate: Date, endDate: Date) {
-        const counts = await prisma.neuteringAppointment.groupBy({
-            by: ['scheduleDate', 'period'],
-            _count: {
-                id: true
-            },
+    /* admin only services */
+    async list(userRole: string, filters: ListNeuteringsQueryInput) {
+        if (userRole !== "ADMIN") {
+            throw new HTTPException(401, { message: "Unauthorized" });
+        }
+
+        const limit = filters.limit;
+        const page = filters.page;
+        const skip = (page - 1) * limit;
+
+        const appointments = await prisma.neuteringAppointment.findMany({
             where: {
+                userId: filters.userId,
+                status: filters?.status ? { in: filters.status } : undefined,
+                petId: filters.petId,
                 scheduleDate: {
-                    gte: startDate,
-                    lte: endDate
-                },
-                status: { in: ["PENDING", "CONFIRMED", "AWAITING_EXAMS", "COMPLETED"] },
-                period: { not: null }
+                    gte: filters.startDate,
+                    lte: filters.endDate
+                }
+            },
+            include: {
+                pet: { select: { name: true, species: true } },
+                user: { select: { name: true, lastName: true, email: true, phone: true } }
+            },
+            orderBy: [
+                { createdAt: 'desc' }, /* pending, awaiting_exams and cancelled has no date, so the oldest created comes first */
+                { scheduleDate: 'desc' } /* most recent comes first (confirmed, completed and no_show) */
+            ],
+            skip: skip,
+            take: limit + 1, // O truque N+1
+        });
+
+        const hasNextPage = appointments.length > limit;
+
+        if (hasNextPage) {
+            appointments.pop();
+        }
+
+        return {
+            data: appointments,
+            meta: {
+                currentPage: page,
+                itemsPerPage: limit,
+                hasNextPage,
+                hasPrevPage: page > 1
+            }
+        };
+    },
+
+    /* this service is specific for admin to create (usually completed) neutering rows already filled up, they can 
+    only create on their own account ID */
+    async createByAdmin(userId: string, data: AdminCreateNeuteringInput) {
+        const pet = await prisma.pet.findUnique({
+            where: { id: data.petId }
+        });
+
+        const user = await prisma.user.findUnique({
+            where: { id: userId }
+        })
+
+        if (!user || !pet) {
+            throw new HTTPException(404, { message: "User or Pet not found" });
+        }
+        if (pet.ownerId !== userId) {
+            throw new HTTPException(403, { message: "You can only register appointments for clinic pets created by your account" });
+        }
+
+        if (user.role !== "ADMIN") {
+            throw new HTTPException(401, { message: "Unauthorized" });
+        }
+
+        /* pets with active neutering appointments or already neutered cannot create another request */
+        const activeAppointment = await prisma.neuteringAppointment.findFirst({
+            where: {
+                petId: data.petId,
+                status: {
+                    in: ["PENDING", "AWAITING_EXAMS", "CONFIRMED", "COMPLETED"]
+                }
             }
         });
 
-        /* map all ocuped days */
-        const filledSlots = counts.reduce((acc, curr) => {
-            if (!curr.scheduleDate || !curr.period) return acc;
-            
-            const dateStr = curr.scheduleDate.toISOString().split('T')[0];
-            if (!acc[dateStr]) acc[dateStr] = { MORNING: 0, AFTERNOON: 0 };
-            
-            acc[dateStr][curr.period] = curr._count.id;
-            return acc;
-        }, {} as Record<string, Record<string, number>>);
-
-        const calendarData: Record<string, { MORNING: number; AFTERNOON: number }> = {};
-        
-        let currentDate = new Date(startDate);
-
-        /* iterate through each day */
-        while (currentDate <= endDate) {
-            const dateStr = currentDate.toISOString().split('T')[0];
-            const dayOfWeek = currentDate.getUTCDay();
-
-            /* if day is saturday or sunday, available slots is always 0 */
-            if (dayOfWeek === 0 || dayOfWeek === 6) {
-                calendarData[dateStr] = { MORNING: 0, AFTERNOON: 0 };
-            } else {
-                const isFriday = dayOfWeek === 5;
-                const dailyQuota = isFriday ? NEUTERING_QUOTAS.FRIDAY : NEUTERING_QUOTAS.WEEKDAY;
-
-                /* get filled count */
-                const filledMorning = filledSlots[dateStr]?.MORNING || 0;
-                const filledAfternoon = filledSlots[dateStr]?.AFTERNOON || 0;
-
-                /* subtract to the quota limit and save available count */
-                calendarData[dateStr] = {
-                    MORNING: Math.max(0, dailyQuota.MORNING.limit - filledMorning),
-                    AFTERNOON: Math.max(0, dailyQuota.AFTERNOON.limit - filledAfternoon)
-                };
-            }
-
-            /* advances 1 day */
-            currentDate.setUTCDate(currentDate.getUTCDate() + 1);
+        if (activeAppointment || pet.isNeutered) {
+            throw new HTTPException(400, { message: "This pet already has an active neutering appointment or is already neutered" });
         }
 
-        return calendarData;
+        /* constraint: only pets between 3 months and 8 years can be neutered */
+        const today = new Date();
+        let ageInMonths = (today.getFullYear() - pet.birthDate.getFullYear()) * 12 + (today.getMonth() - pet.birthDate.getMonth());
+        if (today.getDate() < pet.birthDate.getDate()) {
+            ageInMonths--;
+        }
+
+        if (ageInMonths < MIN_PET_AGE_FOR_NEUTERING || ageInMonths > MAX_PET_AGE_FOR_NEUTERING) {
+            throw new HTTPException(400, { message: "Neutering is only allowed for pets between 3 months and 8 years old" });
+        }
+
+        /* get now to create and update a medical record history */
+        const nowInBrazilShort = new Date().toLocaleString("pt-BR", {
+            timeZone: "America/Sao_Paulo",
+            dateStyle: "short",
+            timeStyle: "short"
+        });
+
+        const creator = `pelo administrador ${user.name}`
+        const initialHistory = `[${nowInBrazilShort}] Pedido criado com status ${MEDICAL_RECORDS_MAP[data.status]} ${creator}.`;
+
+        return await prisma.neuteringAppointment.create({
+            data: {
+                userId,
+                petId: data.petId,
+                status: data.status,
+                scheduleDate: data.scheduleDate,
+                period: data.period,
+                termsAccepted: true,
+                animalChipAccepted: true,
+                animalFastAccepted: true,
+                medicalRecord: {
+                    create: {
+                        petId: data.petId,
+                        notes: "",
+                        history: initialHistory
+                    }
+                }
+            },
+        })
+    },
+
+    async updateStatus(appointmentId: string, userId: string, data: UpdateNeuteringStatusInput) {
+        const user = await prisma.user.findUnique({
+            where: {id: userId}
+        })
+        if (!user) {
+            throw new HTTPException(401, { message: "Unauthorized" });
+        }
+        if (user.role !== "ADMIN") {
+            throw new HTTPException(401, { message: "Unauthorized" });
+        }
+
+        const appointment = await prisma.neuteringAppointment.findUnique({
+            where: { id: appointmentId },
+            include: { medicalRecord: true }
+        });
+
+
+        if (!appointment) {
+            throw new HTTPException(404, { message: "Neutering appointment not found" });
+        }
+   
+        /* repare the history log if the status is changing and a medical record exists */
+        let medicalRecordUpdate = undefined;
+        if (data.status && data.status !== appointment.status && appointment.medicalRecord) {
+            const nowInBrazil = new Date().toLocaleString("pt-BR", {
+                timeZone: "America/Sao_Paulo",
+                dateStyle: "short",
+                timeStyle: "short"
+            });
+
+            const creator = `pelo administrador ${user.name}`;
+            const logEntry = `[${nowInBrazil}] Status alterado de ${MEDICAL_RECORDS_MAP[appointment.status]} para ${MEDICAL_RECORDS_MAP[data.status]} ${creator}`;
+           
+            medicalRecordUpdate = {
+                update: {
+                    history: appointment.medicalRecord.history
+                        ? `${appointment.medicalRecord.history}\n${logEntry}`
+                        : logEntry
+                }
+            };
+        }
+
+        /* rule: if admin set as NO_SHOW, we automatically block the user for a month */
+        if (data.status === "NO_SHOW" && appointment.status !== "NO_SHOW") {
+            const blockUntilDate = new Date();
+            blockUntilDate.setDate(blockUntilDate.getDate() + 30); /* add 30 days */
+
+            /* we use transaction to update appointment and user status at the same time */
+            return await prisma.$transaction([
+                prisma.neuteringAppointment.update({
+                    where: { id: appointmentId },
+                    data: {
+                        ...data,
+                        medicalRecord: medicalRecordUpdate
+                    }
+                }),
+                prisma.user.update({
+                    where: { id: appointment.userId },
+                    data: { blockedUntil: blockUntilDate }
+                })
+            ]);
+        }
+
+        /* rule: you cannot confirm  appointments without date */
+        if ((data.status === "CONFIRMED") && !data.scheduleDate && !appointment.scheduleDate) {
+            throw new HTTPException(403, { message: "To confirm a neutering appointment you must set a date." });
+        }
+
+        if (data.status === "COMPLETED") {
+            return await prisma.$transaction([
+                prisma.neuteringAppointment.update({
+                    where: { id: appointmentId },
+                    data: {
+                        ...data,
+                        medicalRecord: medicalRecordUpdate
+                    }
+                }),
+                prisma.pet.update({
+                    where: { id: appointment.petId },
+                    data: { 
+                        isNeutered: true,
+                    }
+                })
+            ]);
+        }
+
+        /* update for when status is !== NO_SHOW */
+        return await prisma.neuteringAppointment.update({
+            where: { id: appointmentId },
+            data: {
+                ...data,
+                medicalRecord: medicalRecordUpdate
+            }
+        });
+    },
+
+    /* helpers */
+
+    async checkSlotAvailability(date: Date, period: string, limit: number) {
+        const count = await prisma.neuteringAppointment.count({
+            where: {
+                scheduleDate: date,
+                period: period,
+                status: { in: ["PENDING", "CONFIRMED", "AWAITING_EXAMS", "COMPLETED"] }
+            }
+        });
+
+        if (count >= limit) {
+            throw new HTTPException(400, { message: "No more slots available for this date and period" });
+        }
     },
 };

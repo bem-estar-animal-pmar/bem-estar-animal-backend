@@ -116,7 +116,7 @@ app.post('/', async (ctx) => {
 /* @desc admin create a new pet for user, skipping any limit rules
    @route POST https://example.com/api/pets/admin
    @access private (ADMIN) */
-app.post('/admin/', async (ctx) => {
+app.post('/admin', async (ctx) => {
 	const user = ctx.get("user")!;
 
 	const body = await ctx.req.json();

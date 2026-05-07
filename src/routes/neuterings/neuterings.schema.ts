@@ -1,9 +1,8 @@
 import { z } from "zod";
 
-/* users cannot set schedule date and period anymore */
 export const createNeuteringSchema = z.object({ /* users are allowed to create neutering requests */
     petId: z.string() 
-        .max(50, "User ID must be less than 50 characters"),
+        .max(50, "Pet ID must be less than 50 characters"),
     scheduleDate: z.coerce.date()
         .transform(date => 
             new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))
@@ -18,6 +17,17 @@ export const createNeuteringSchema = z.object({ /* users are allowed to create n
     termsAccepted: z.coerce.boolean().refine(val => val === true, {
         message: "You must agree that you have read the neutering terms"
     }),
+});
+
+export const adminCreateNeuteringSchema = z.object({ /* schema for admins to create already completed neutering rows */
+    petId: z.string() 
+        .max(50, "Pet ID must be less than 50 characters"),
+    status: z.enum(["PENDING", "AWAITING_EXAMS", "CONFIRMED", "COMPLETED", "CANCELLED", "NO_SHOW"]),
+    scheduleDate: z.coerce.date()
+        .transform(date => 
+            new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))
+        ),
+    period: z.enum(["MORNING", "AFTERNOON"]),
 });
 
 /* only admins can update a neutering appointment */
@@ -68,6 +78,7 @@ export const calendarQuerySchema = z.object({
 });
 
 export type CreateNeuteringInput = z.infer<typeof createNeuteringSchema>;
+export type AdminCreateNeuteringInput = z.infer<typeof adminCreateNeuteringSchema>;
 export type UpdateNeuteringStatusInput = z.infer<typeof updateNeuteringStatusSchema>;
 export type ListNeuteringsQueryInput = z.infer<typeof listNeuteringsQuerySchema>;
 export type calendarQueryInput = z.infer<typeof calendarQuerySchema>;

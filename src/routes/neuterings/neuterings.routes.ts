@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { authMiddleware, type AuthEnv } from '../../middleware/authHandler';
 import { HTTPException } from 'hono/http-exception';
 import { neuteringService } from "./neuterings.service";
-import { createNeuteringSchema, listNeuteringsQuerySchema, updateNeuteringStatusSchema, calendarQuerySchema } from './neuterings.schema';
+import { createNeuteringSchema, adminCreateNeuteringSchema, listNeuteringsQuerySchema, updateNeuteringStatusSchema, calendarQuerySchema } from './neuterings.schema';
 
 const app = new Hono<AuthEnv>();
 
@@ -69,6 +69,24 @@ app.post('/', async (ctx) => {
     }
 
     const appointment = await neuteringService.create(user.id, validation.data);
+    
+    return ctx.json(appointment, 201);
+});
+
+/* @desc create a new neutering appointment as admin, usually for registering completed appointments
+   @route POST /api/neutering/admin-register
+   @access private (ADMIN) */
+app.post('/admin-register', async (ctx) => {
+    const user = ctx.get("user")!;
+
+    const body = await ctx.req.json();
+    const validation = adminCreateNeuteringSchema.safeParse(body);
+
+    if (!validation.success) {
+        throw new HTTPException(400, { message: "Validation Error", cause: validation.error });
+    }
+
+    const appointment = await neuteringService.createByAdmin(user.id, validation.data);
     
     return ctx.json(appointment, 201);
 });
