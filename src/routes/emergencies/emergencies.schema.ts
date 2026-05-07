@@ -13,7 +13,8 @@ export const createEmergencySchema = z.object({
         .max(500, "Description is too long")
         .optional(),
     petId: z.string() 
-        .max(50, "Pet ID must be less than 50 characters"),
+        .max(50, "Pet ID must be less than 50 characters")
+        .optional(),
     temporaryHomeAccepted: z.coerce.boolean().refine(val => val === true, {
         message: "You must confirm to be a temporary home during the pet treatment"
     }),
