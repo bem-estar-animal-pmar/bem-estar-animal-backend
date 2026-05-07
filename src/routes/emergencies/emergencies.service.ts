@@ -101,7 +101,9 @@ export const emergencyService = {
                         gender: true,
                         breed: true,
                         ownerId: true,
-                        chip: true
+                        chip: true,
+                        isNeutered: true,
+                        allowEmergency: true,
                     }
                 },
                 user: {
