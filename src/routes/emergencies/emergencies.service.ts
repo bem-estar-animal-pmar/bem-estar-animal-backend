@@ -99,6 +99,7 @@ export const emergencyService = {
                         name: true,
                         species: true,
                         gender: true,
+                        size: true,
                         breed: true,
                         ownerId: true,
                         chip: true,
