@@ -272,9 +272,12 @@ export const neuteringService = {
                         name: true,
                         species: true,
                         gender: true,
+                        size: true,
                         breed: true,
                         ownerId: true,
-                        chip: true
+                        chip: true,
+                        isNeutered: true,
+                        allowEmergency: true,
                     }
                 },
                 user: {
