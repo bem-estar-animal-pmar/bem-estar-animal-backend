@@ -102,6 +102,10 @@ export const neuteringService = {
             throw new HTTPException(403, { message: "You can only schedule appointments for your own pet" });
         }
 
+        if (pet.adoptionStatus === "ADOPTED") {
+            throw new HTTPException(400, { message: "This pet is adopted, which means you cannot schedule neuterings anymore. Pet data is for read only now." });
+        }
+
         /* pets with active neutering appointments or already neutered cannot create another request */
         const activeAppointment = await prisma.neuteringAppointment.findFirst({
             where: {

@@ -37,6 +37,9 @@ export const emergencyService = {
             if (petExists.ownerId != userId) {
                 throw new HTTPException(401, { message: "You are not allowed to create an emergency appointment for this pet" });
             }
+            if (petExists.adoptionStatus === "ADOPTED") {
+                throw new HTTPException(400, { message: "This pet is adopted, which means you cannot schedule neuterings anymore. Pet data is for read only now." });
+            }
             if (petExists.allowEmergency === false) {
                 throw new HTTPException(401, { message: "This pet is not allowed to emergency request." });
             }
