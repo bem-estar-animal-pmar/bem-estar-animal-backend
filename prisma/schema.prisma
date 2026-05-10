@@ -125,12 +125,16 @@ enum PetSize {
   LARGE
 }
 
-enum PetAdoptionStatus { 
-  FOR_ADOPTION
-  ADOPTED
+enum PetHomeStatus { 
   HAS_OWNER 
   TEMPORARY_HOME
   STRAY_ANIMAL /* set this if the animal is sent back to the streets */
+}
+
+enum PetAdoptionStatus { 
+  FOR_ADOPTION
+  ADOPTED
+  NONE
 }
 
 enum PetBreed {
@@ -221,8 +225,9 @@ model Pet {
   ownerId           String
   owner             User               @relation(fields: [ownerId], references: [id])
 
-  adoptionStatus    PetAdoptionStatus  @default(HAS_OWNER) /* STRAY_ANIMAL is set when the pet was sent back to streets,
+  homeStatus        PetHomeStatus      @default(HAS_OWNER) /* STRAY_ANIMAL is set when the pet was sent back to streets,
   this might happen when the clinic threated a pet or someone who does not own it asked for consultation */
+  adoptionStatus    PetAdoptionStatus  @default(NONE)
   chip              String             @default("NO_CHIP") /* chip can only be set by the clinic */
 
   neuteringAppointments NeuteringAppointment[]
@@ -332,16 +337,22 @@ model MedicalRecord {
 
 /* ----------------- ADOPTION REQUESTS AND GIVE UP MODELS ----------------- */
 
-enum RequestStatus {
+enum GiveUpRequestStatus { /* there is no cancelled here, cancel route just delete the data row from the db */
+  PENDING
+  APPROVED           /* for give it is active state */
+  REJECTED
+}
+
+enum AdoptionRequestStatus { /* not here also, because adoption requests are sent without login */
   PENDING
   APPROVED
   REJECTED
-  CANCELLED_BY_USER
+  RETURNED
 }
 
 model GiveUpRequest {
   id        String        @id @default(uuid())
-  status    RequestStatus @default(PENDING)
+  status    GiveUpRequestStatus @default(PENDING)
   reason    String?       @db.VarChar(8000)
   
   petId     String        @unique
@@ -349,6 +360,8 @@ model GiveUpRequest {
   
   userId    String
   user      User          @relation(fields: [userId], references: [id])
+
+  approvedAt DateTime?     
 
   temporaryHomeAccepted Boolean   @default(false)
   termsAccepted         Boolean   @default(false)
@@ -358,7 +371,7 @@ model GiveUpRequest {
 
 model AdoptionRequest {
   id            String        @id @default(uuid())
-  status        RequestStatus @default(PENDING)
+  status        AdoptionRequestStatus @default(PENDING)
   
   petId         String
   pet           Pet           @relation(fields: [petId], references: [id])
@@ -366,6 +379,15 @@ model AdoptionRequest {
   adopterName   String
   adopterEmail  String
   adopterPhone  String
+  
+  adopterCep           String
+  adopterStreet        String
+  adopterNeighborhood  String
+  adopterCity          String
+  adopterState         String
+  adopterNumber        String
+
+  adoptedAt DateTime?     
 
   createdAt     DateTime      @default(now())
 }
