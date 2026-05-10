@@ -11,6 +11,9 @@ because adoptions can happen to people who do not necessary have an account. If 
 to the pet, the admins should do it manually and update the pet status to HAS_OWNER (or maybe create a diff pet/user combo (better)) */
 
 export const petsService = {
+
+    /* services related to adoption and give up */
+
     /* public, lists pets for adoption so not logged users can create adopt requests */
     async listForAdoption(filters?: ListPetsForAdoptionParamsInput) {
         return await prisma.pet.findMany({
@@ -37,6 +40,88 @@ export const petsService = {
         });
     },
 
+    async undoGiveUp(petId: string, userId: string, userRole: string) {
+        const existingPet = await prisma.pet.findUnique({
+            where: { id: petId }
+        });
+
+        if (!existingPet) {
+            throw new HTTPException(404, { message: "Pet not found" });
+        }
+
+        if (userRole !== "ADMIN" && existingPet.ownerId !== userId) {
+            throw new HTTPException(401, { message: "Unauthorized" });
+        }
+
+        if (existingPet.adoptionStatus !== "FOR_ADOPTION") {
+            throw new HTTPException(401, { message: "Cannot cancel give up beucase pet is adopted or already not for adoption" });
+        }
+
+        const result = await prisma.pet.updateMany({ /* call it agaion with updateMany to avoid race condition */
+            where: {
+                id: petId,
+                adoptionStatus: "FOR_ADOPTION"
+            },
+            data: {
+                adoptionStatus: "NONE"
+            }
+        });
+        },
+
+    /* admin only: undo a pet adoption */
+    async returnPet(petId: string, userId: string, userRole: string) {
+        if (userRole !== "ADMIN") {
+            throw new HTTPException(401, { message: "Unauthorized" });
+        }
+
+        const existingPet = await prisma.pet.findUnique({
+            where: { id: petId }
+        });
+
+        if (!existingPet) {
+            throw new HTTPException(404, { message: "Pet not found" });
+        }
+
+        if (existingPet.adoptionStatus !== "ADOPTED") {
+            throw new HTTPException(401, { message: "Pet is not adopted" });
+        }
+
+        const latestAdoption = await prisma.adoptionRequest.findFirst({
+            where: {
+                petId: petId,
+                status: "APPROVED",
+            },
+            orderBy: {
+                createdAt: "desc",
+            },
+        });
+
+        /* if there is an approved adoption, set it as returned and change pet adoptionStatus */
+        if (latestAdoption) {
+            const [, updatedPet] = await prisma.$transaction([
+                prisma.adoptionRequest.update({
+                    where: { id: latestAdoption.id },
+                    data: {
+                        status: "RETURNED"
+                    }
+                }),
+                prisma.pet.update({
+                    where: { id: existingPet.id },
+                    data: { adoptionStatus: "NONE" }
+                })
+            ]);
+            return updatedPet;
+        }
+        /* if not, only update pet adoptionStatus */
+        return await prisma.pet.update({
+            where: { id: existingPet.id },
+            data: { adoptionStatus: "NONE" }
+        })
+
+    },
+
+    /* general pet services */
+
     /* user, admin services */
 
     async listByUser(userId: string, userRole: string, filters?: ListPetsParamsInput) {
@@ -47,6 +132,7 @@ export const petsService = {
                 gender: filters?.gender,
                 deletedAt: userRole === "USER" ? null : undefined,
                 adoptionStatus: userRole === "ADMIN" ? filters?.adoptionStatus : undefined,
+                homeStatus: userRole === "ADMIN" ? filters?.homeStatus : undefined,
                 name: filters?.name ? {
                     contains: filters.name,
                     mode: 'insensitive'

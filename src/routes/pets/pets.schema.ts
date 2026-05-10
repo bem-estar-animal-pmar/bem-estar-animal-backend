@@ -49,12 +49,10 @@ export const adminCreatePetSchema = basePetSchema.extend({
     chip: z.string()
         .max(50)
         .optional(),
-    adoptionStatus: z.enum([ /* added for admin creation */
+    homeStatus: z.enum([ /* added for admin creation, since most of cases admins will create for users, they can only set as temporary home or has_owner */
         "HAS_OWNER",
-        "FOR_ADOPTION",
-        "ADOPTED",
-        "TEMPORARY_HOME",
-        "STRAY_ANIMAL"
+        "TEMPORARY_HOME", 
+        "STRAY_ANIMAL" /* no for_adoption or adopted here */
     ]).optional(),
     isNeutered: z.coerce.boolean()
         .optional(),
@@ -92,10 +90,8 @@ export const adminUpdatePetSchema = z.object({
     chip: z.string()
         .max(50)
         .optional(), /* must add constraint on service to only let admin set chip */
-    adoptionStatus: z.enum([ /* must add constraint on service to only let admin set adoptionStatus */
-        "HAS_OWNER",
-        "FOR_ADOPTION",
-        "ADOPTED",
+    homeStatus: z.enum([ /* must add constraint on service to only let admin set adoptionStatus */ 
+        "HAS_OWNER", /* here admins do not set adoption status anymore, it is 100% controlled by the backend */
         "TEMPORARY_HOME",
         "STRAY_ANIMAL"
     ]).optional(),
@@ -120,12 +116,15 @@ export const listPetsQuerySchema = z.object({
     gender: z.enum(["MALE", "FEMALE"]).optional(),
     breed: z.enum(PetBreed)
         .optional(),
-    adoptionStatus: z.enum([
+    homeStatus: z.enum([
         "HAS_OWNER",
-        "FOR_ADOPTION",
-        "ADOPTED",
         "TEMPORARY_HOME",
         "STRAY_ANIMAL"
+    ]).optional(),
+    adoptionStatus: z.enum([
+        "NONE",
+        "FOR_ADOPTION",
+        "ADOPTED",
     ]).optional(),
     chip: z.string()
         .max(50)

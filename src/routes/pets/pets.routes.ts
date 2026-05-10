@@ -168,4 +168,32 @@ app.delete('/:id', async (ctx) => {
 	return ctx.json({ message: "Pet successfully deleted." });
 })
 
+
+/* routes related to adoption and give up requests */
+
+/* @desc update a pet adoption status from FOR_ADOPTION to NONE
+   @route PATCH https://example.com/api/pets/:id/undo-give-up
+   @access private (USER, ADMIN) */
+app.patch('/:id/undo-give-up', async (ctx) => {
+	const user = ctx.get("user")!;
+	const petId = ctx.req.param('id');
+	const role = user.role ?? "USER"; 
+
+	const updatedPet = await petsService.undoGiveUp(petId, user.id, role);
+	return ctx.json(updatedPet, 200);
+})
+
+
+/* @desc update a pet adoption status from ADOPTED to NONE (admin only)
+   @route PATCH https://example.com/api/pets/:id/adoption-returnd
+   @access private (ADMIN) */
+app.patch('/:id/adoption-return', async (ctx) => {
+	const user = ctx.get("user")!;
+	const petId = ctx.req.param('id');
+	const role = user.role ?? "USER"; 
+
+	const updatedPet = await petsService.returnPet(petId, user.id, role);
+	return ctx.json(updatedPet, 200);
+})
+
 export default app;
