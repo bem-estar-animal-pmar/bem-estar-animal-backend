@@ -179,8 +179,8 @@ app.patch('/:id/undo-give-up', async (ctx) => {
 	const petId = ctx.req.param('id');
 	const role = user.role ?? "USER"; 
 
-	const updatedPet = await petsService.undoGiveUp(petId, user.id, role);
-	return ctx.json(updatedPet, 200);
+	const result = await petsService.undoGiveUp(petId, user.id, role);
+	return ctx.json({ message: "Pet successfully removed from adoption list" });
 })
 
 
@@ -193,7 +193,7 @@ app.patch('/:id/adoption-return', async (ctx) => {
 	const role = user.role ?? "USER"; 
 
 	const updatedPet = await petsService.returnPet(petId, user.id, role);
-	return ctx.json(updatedPet, 200);
+	return ctx.json({ message: "Pet successfully returned" });
 })
 
 export default app;

@@ -57,7 +57,7 @@ export const petsService = {
             throw new HTTPException(401, { message: "Cannot cancel give up beucase pet is adopted or already not for adoption" });
         }
 
-        const result = await prisma.pet.updateMany({ /* call it agaion with updateMany to avoid race condition */
+        return await prisma.pet.updateMany({ /* call it agaion with updateMany to avoid race condition */
             where: {
                 id: petId,
                 adoptionStatus: "FOR_ADOPTION"
@@ -66,7 +66,7 @@ export const petsService = {
                 adoptionStatus: "NONE"
             }
         });
-        },
+    },
 
     /* admin only: undo a pet adoption */
     async returnPet(petId: string, userId: string, userRole: string) {
