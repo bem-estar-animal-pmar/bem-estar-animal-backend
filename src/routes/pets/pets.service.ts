@@ -2,6 +2,7 @@ import { prisma } from "../../lib/prisma.js";
 import type { CreatePetInput, AdminCreatePetInput, AdminUpdatePetInput, ListPetsParamsInput, ListPetsForAdoptionParamsInput } from "./pets.schema";
 import { HTTPException } from "hono/http-exception";
 import { PETS_PER_USER_LIMIT } from "../../constants/constants.js"
+import { ADOPTIONS_HISTORY_MAP } from "../../constants/constants.js";
 
 /* admins here should be able to create pets for other users, this is necessary because when a user makes a emergency request, it
 does not comes with a pet */
@@ -57,19 +58,61 @@ export const petsService = {
             throw new HTTPException(401, { message: "Cannot cancel give up beucase pet is adopted or already not for adoption" });
         }
 
-        return await prisma.pet.updateMany({ /* call it agaion with updateMany to avoid race condition */
-            where: {
-                id: petId,
-                adoptionStatus: "FOR_ADOPTION"
-            },
-            data: {
-                adoptionStatus: "NONE"
+        const nowInBrazil = new Date().toLocaleString("pt-BR", {
+            timeZone: "America/Sao_Paulo",
+            dateStyle: "short",
+            timeStyle: "short"
+        });
+
+        await prisma.$transaction(async (tx) => {
+            const petUpdateResult = await tx.pet.updateMany({
+                where: {
+                    id: petId,
+                    adoptionStatus: "FOR_ADOPTION"
+                },
+                data: {
+                    adoptionStatus: "NONE"
+                }
+            });
+
+            if (petUpdateResult.count === 0) {
+                throw new HTTPException(400, {
+                    message: "Pet is no longer available for adoption"
+                });
             }
+
+            const requestsToReject = await tx.adoptionRequest.findMany({
+                where: {
+                    petId: petId,
+                    status: "PENDING"
+                }
+            });
+
+            await Promise.all(
+                requestsToReject.map((adoptionRequest) =>
+                    tx.adoptionRequest.update({
+                        where: {
+                            id: adoptionRequest.id
+                        },
+                        data: {
+                            status: "REJECTED",
+                            history:
+                                adoptionRequest.history ? 
+                                    adoptionRequest.history + `\n [${nowInBrazil}] Pedido rejeitado automaticamente antes de ser aceito pois o pet foi removido da vitrine.`
+                                    : `[${nowInBrazil}] Pedido rejeitado automaticamente antes de ser aceito pois o pet foi removido da vitrine.`
+                        }
+                    })
+                )
+            );
+        });
+
+        return await prisma.pet.findUnique({
+            where: { id: petId }
         });
     },
 
     /* admin only: undo a pet adoption */
-    async returnPet(petId: string, userId: string, userRole: string) {
+    async returnPet(petId: string, userName: string, userRole: string) {
         if (userRole !== "ADMIN") {
             throw new HTTPException(401, { message: "Unauthorized" });
         }
@@ -96,13 +139,23 @@ export const petsService = {
             },
         });
 
+        const nowInBrazil = new Date().toLocaleString("pt-BR", {
+            timeZone: "America/Sao_Paulo",
+            dateStyle: "short",
+            timeStyle: "short"
+        });
+
         /* if there is an approved adoption, set it as returned and change pet adoptionStatus */
         if (latestAdoption) {
             const [, updatedPet] = await prisma.$transaction([
                 prisma.adoptionRequest.update({
                     where: { id: latestAdoption.id },
                     data: {
-                        status: "RETURNED"
+                        status: "RETURNED",
+                        history:
+                            latestAdoption.history ? 
+                                latestAdoption.history + `\n [${nowInBrazil}] Status do pedido atualizado para DEVOLVIDO pelo administrador ${userName}.`
+                                : `[${nowInBrazil}] Status do pedido atualizado para DEVOLVIDO pelo administrador ${userName}.`
                     }
                 }),
                 prisma.pet.update({

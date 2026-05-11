@@ -192,7 +192,7 @@ app.patch('/:id/adoption-return', async (ctx) => {
 	const petId = ctx.req.param('id');
 	const role = user.role ?? "USER"; 
 
-	const updatedPet = await petsService.returnPet(petId, user.id, role);
+	const updatedPet = await petsService.returnPet(petId, user.name, role);
 	return ctx.json({ message: "Pet successfully returned" });
 })
 
