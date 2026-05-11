@@ -357,7 +357,7 @@ model GiveUpRequest {
   reason    String?       @db.VarChar(8000)
   history   String        @db.VarChar(2000)
   
-  petId     String        @unique
+  petId     String
   pet       Pet           @relation(fields: [petId], references: [id])
   
   userId    String
