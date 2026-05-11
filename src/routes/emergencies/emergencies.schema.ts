@@ -75,7 +75,7 @@ export const listEmergenciesQuerySchema = z.object({
 });
 
 export const updateEmergencyStatusSchema = z.object({
-    status: z.enum(["PENDING", "CONFIRMED", "COMPLETED", "NO_SHOW"]).optional(),
+    status: z.enum(["PENDING", "CONFIRMED", "COMPLETED", "NO_SHOW", "CANCELLED"]).optional(),
     scheduleDate: z.coerce.date().transform(d => 
         new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
     ).optional(),
