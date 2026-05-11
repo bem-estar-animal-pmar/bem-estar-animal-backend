@@ -352,6 +352,7 @@ enum AdoptionRequestStatus { /* not here also, because adoption requests are sen
 
 model GiveUpRequest {
   id        String        @id @default(uuid())
+  requestNumber Int             @unique @default(autoincrement())
   status    GiveUpRequestStatus @default(PENDING)
   reason    String?       @db.VarChar(8000)
   history   String        @db.VarChar(2000)
@@ -372,6 +373,7 @@ model GiveUpRequest {
 
 model AdoptionRequest {
   id            String        @id @default(uuid())
+  requestNumber Int             @unique @default(autoincrement())
   status        AdoptionRequestStatus @default(PENDING)
   history   String        @db.VarChar(2000)
   
