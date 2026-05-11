@@ -354,6 +354,7 @@ model GiveUpRequest {
   id        String        @id @default(uuid())
   status    GiveUpRequestStatus @default(PENDING)
   reason    String?       @db.VarChar(8000)
+  history   String        @db.VarChar(2000)
   
   petId     String        @unique
   pet       Pet           @relation(fields: [petId], references: [id])
@@ -372,6 +373,7 @@ model GiveUpRequest {
 model AdoptionRequest {
   id            String        @id @default(uuid())
   status        AdoptionRequestStatus @default(PENDING)
+  history   String        @db.VarChar(2000)
   
   petId         String
   pet           Pet           @relation(fields: [petId], references: [id])
