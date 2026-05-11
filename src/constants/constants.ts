@@ -53,10 +53,17 @@ export const BRACHYCEPHALIC_BREEDS = [
 
 export const MEDICAL_RECORDS_MAP: Record<string, string> = {
     /* neuterings  & emergencies */
-    PENDING: "Pendente",
+    PENDING: "Em análise",
     AWAITING_EXAMS: "Aguard. Exames",
     CONFIRMED: "Confirmado",
     COMPLETED: "Completo",
     CANCELLED: "Cancelado",
     NO_SHOW: "Faltou",
+};
+
+export const ADOPTIONS_HISTORY_MAP: Record<string, string> = {
+    PENDING: "Em análise",
+    APPROVED: "Aprovado",
+    REJECTED: "Recusado",
+    RETURNED: "Devolvido",
 };

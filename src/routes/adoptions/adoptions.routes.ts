@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { authMiddleware, type AuthEnv } from '../../middleware/authHandler';
 import { HTTPException } from 'hono/http-exception';
 import { adoptionsService } from "./adoptions.service";
-import { createGiveUpSchema, updateGiveUpStatusSchema, createAdoptionSchema, updateAdoptionStatusSchema, listRequestsQuerySchema } from './adoptions.schema';
+import { createGiveUpSchema, updateGiveUpStatusSchema, createAdoptionSchema, updateAdoptionStatusSchema, listGiveUpRequestsQuerySchema, listAdoptionRequestsQuerySchema} from './adoptions.schema';
 
 const app = new Hono<AuthEnv>();
 
@@ -20,12 +20,14 @@ app.post('/request', async (ctx) => {
     }
 
     const request = await adoptionsService.createAdoption(validation.data);
-    return ctx.json({ data: request, message: "Adoption request sent successfully" }, 201);
+    return ctx.json(request, 201);
 });
 
 /* private routes */
 
 app.use('*', authMiddleware);
+
+/* --------------- GIVE UP RELATED ROUTES  --------------- */
 
 /* @desc list current user's give up requests
    @route GET /api/adoptions/give-up/me
@@ -33,7 +35,7 @@ app.use('*', authMiddleware);
 app.get('/give-up/me', async (ctx) => {
     const user = ctx.get("user")!;
     const rawQuery = ctx.req.query();
-    const validation = listRequestsQuerySchema.safeParse(rawQuery);
+    const validation = listGiveUpRequestsQuerySchema.safeParse(rawQuery);
 
     if (!validation.success) {
         throw new HTTPException(400, { message: "Invalid query parameters", cause: validation.error });
@@ -50,7 +52,7 @@ app.get('/give-up', async (ctx) => {
     const user = ctx.get("user")!;
     const role = user.role ?? "USER";
     const rawQuery = ctx.req.query();
-    const validation = listRequestsQuerySchema.safeParse(rawQuery);
+    const validation = listGiveUpRequestsQuerySchema.safeParse(rawQuery);
 
     if (!validation.success) {
         throw new HTTPException(400, { message: "Invalid query parameters", cause: validation.error });
@@ -60,21 +62,17 @@ app.get('/give-up', async (ctx) => {
     return ctx.json(requests, 200);
 });
 
-/* @desc list all adoption requests (people wanting to adopt)
-   @route GET /api/adoptions/request
-   @access private (ADMIN) */
-app.get('/request', async (ctx) => {
-    const user = ctx.get("user")!;
+/* @desc get a specific give up request data data
+   @route GET https://example.com/api/adoptions/give-up/details/:id
+   @access private (USER, ADMIN) */
+app.get('/give-up/details/:id', async (ctx) => {
+    const user = ctx.get("user")!; /* authMiddle already make sure 'user' exists */
+
+    const requestId = ctx.req.param('id');
     const role = user.role ?? "USER";
-    const rawQuery = ctx.req.query();
-    const validation = listRequestsQuerySchema.safeParse(rawQuery);
 
-    if (!validation.success) {
-        throw new HTTPException(400, { message: "Invalid query parameters", cause: validation.error });
-    }
-
-    const requests = await adoptionsService.listAdoptions(role, validation.data);
-    return ctx.json(requests, 200);
+    const result = await adoptionsService.getGiveUpById(requestId, user.id, role);
+    return ctx.json(result, 200);
 });
 
 /* @desc user requests to give up their pet
@@ -90,7 +88,7 @@ app.post('/give-up', async (ctx) => {
     }
 
     const request = await adoptionsService.createGiveUp(user.id, validation.data);
-    return ctx.json({ data: request, message: "Give up request submitted" }, 201);
+    return ctx.json(request, 201);
 });
 
 /* @desc user cancels their own give up request
@@ -100,8 +98,8 @@ app.patch('/give-up/:id/cancel', async (ctx) => {
     const user = ctx.get("user")!;
     const requestId = ctx.req.param('id');
 
-    const cancelled = await adoptionsService.cancelGiveUpByUser(requestId, user.id);
-    return ctx.json({ data: cancelled, message: "Give up request cancelled successfully" }, 200);
+    const cancelled = await adoptionsService.cancelGiveUp(requestId, user.id);
+    return ctx.json({ message: "Give up request cancelled successfully" }, 200);
 });
 
 /* @desc admin updates a give up request (Approve = Pet goes to adoption vitrine)
@@ -119,8 +117,53 @@ app.patch('/give-up/:id/status', async (ctx) => {
         throw new HTTPException(400, { message: "Validation Error", cause: validation.error });
     }
 
-    const updated = await adoptionsService.updateGiveUpStatus(requestId, role, validation.data);
+    const updated = await adoptionsService.updateGiveUpStatus(requestId, role, user.name, validation.data);
     return ctx.json(updated, 200);
+});
+
+/* --------------- ADOPTION RELATED ROUTES  --------------- */
+
+/* @desc list all adoption requests (people wanting to adopt)
+   @route GET /api/adoptions/request
+   @access private (ADMIN) */
+app.get('/request', async (ctx) => {
+    const user = ctx.get("user")!;
+    const role = user.role ?? "USER";
+    const rawQuery = ctx.req.query();
+    const validation = listAdoptionRequestsQuerySchema.safeParse(rawQuery);
+
+    if (!validation.success) {
+        throw new HTTPException(400, { message: "Invalid query parameters", cause: validation.error });
+    }
+
+    const requests = await adoptionsService.listAdoptions(role, validation.data);
+    return ctx.json(requests, 200);
+});
+
+/* @desc get a specific adoption request data
+   @route GET https://example.com/api/adoptions/request/details/:id
+   @access private (USER, ADMIN) */
+app.get('/request/details/:id', async (ctx) => {
+    const user = ctx.get("user")!; /* authMiddle already make sure 'user' exists */
+
+    const requestId = ctx.req.param('id');
+    const role = user.role ?? "USER";
+
+    const result = await adoptionsService.getAdoptionById(requestId, role);
+    return ctx.json(result, 200);
+});
+
+/* @desc get the most recent approved adoption for a specific pet 
+to show data on pet dashboard (user and admin) when pet is ADOPTED (in future)
+   @route GET /api/adoptions/pet/:petId/latest-adoption
+   @access private (USER / ADMIN) */
+app.get('/pet/:petId/latest-adoption', async (ctx) => {
+    const user = ctx.get("user")!;
+    const role = user.role ?? "USER";
+    const petId = ctx.req.param('petId');
+
+    const latestAdoption = await adoptionsService.getLatestApprovedAdoption(user.id, petId, role);
+    return ctx.json(latestAdoption, 200);
 });
 
 /* @desc admin approves/rejects an adoption request
@@ -138,7 +181,7 @@ app.patch('/request/:id/status', async (ctx) => {
         throw new HTTPException(400, { message: "Validation Error", cause: validation.error });
     }
 
-    const updated = await adoptionsService.updateAdoptionStatus(requestId, role, validation.data);
+    const updated = await adoptionsService.updateAdoptionStatus(requestId, role, user.name, validation.data);
     return ctx.json(updated, 200);
 });
 
