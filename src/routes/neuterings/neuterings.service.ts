@@ -136,7 +136,7 @@ export const neuteringService = {
         }
 
         /* constraint: pets below 3 kg or above 15 kg must do exams */
-        let neuteringStatus:'PENDING' | 'AWAITING_EXAMS' = "PENDING";
+        let neuteringStatus:'CONFIRMED' | 'AWAITING_EXAMS' = "CONFIRMED";
 
         if (pet.species === "DOG" && pet.gender === "FEMALE") {
             if ((pet.weight <= MIN_PET_WEIGHT_FOR_NEUTERING) || pet.weight > MAX_PET_WEIGHT_FOR_NEUTERING) {
