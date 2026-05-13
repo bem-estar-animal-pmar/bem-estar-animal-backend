@@ -1,7 +1,7 @@
 import { prisma } from "../../lib/prisma.js";
 import { HTTPException } from "hono/http-exception";
 import type { CreateEmergencyInput, AdminCreateEmergencyInput, ListEmergenciesQueryInput, UpdateEmergencyStatusInput } from "./emergencies.schema";
-import { MEDICAL_RECORDS_MAP, MAX_DAY_LIMIT_FOR_USER_CANCEL_NEUTERING_REQUEST } from "../../constants/constants";
+import { MEDICAL_RECORDS_MAP, MAX_DAY_LIMIT_FOR_USER_CANCEL_NEUTERING_REQUEST, MAX_CANCELLATIONS_PER_WEEK } from "../../constants/constants";
 
 /* here, admins should not be able to create emergency requests for other users, but they should be able to attach pets from
 other users (and create pets for other users) to any emergency request because the pet data is added later */
@@ -64,11 +64,29 @@ export const emergencyService = {
             size = petExists.size;
         }
 
+        const nowInBrazil = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+        
         const nowInBrazilShort = new Date().toLocaleString("pt-BR", {
             timeZone: "America/Sao_Paulo",
             dateStyle: "short",
             timeStyle: "short"
         });
+
+        const sevenDaysAgo = new Date(nowInBrazil.getTime() - (7 * 24 * 60 * 60 * 1000));
+
+        const recentCancellations = await prisma.neuteringAppointment.count({
+            where: {
+                userId,
+                status: "CANCELLED",
+                updatedAt: { gte: sevenDaysAgo, lte: nowInBrazil } 
+            }
+        });
+
+        if (recentCancellations >= MAX_CANCELLATIONS_PER_WEEK) {
+            throw new HTTPException(429, { 
+                message: `Maximum limit for appointments cancellation reached. Please wait a few days to schedule online again, or contact the clinic directly.` 
+            });
+        }
 
         const creator = userRole === "ADMIN" ? `pelo administrador ${user.name}` : `pelo usuário ${user.name}`;
         const initialHistory = `[${nowInBrazilShort}] Pedido criado com status ${MEDICAL_RECORDS_MAP["PENDING"]} ${creator}.`;

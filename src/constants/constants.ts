@@ -9,6 +9,8 @@ export const MIN_DAY_LIMIT_FOR_NEUTERING_REQUEST = 2;
 export const MAX_MONTH_LIMIT_FOR_NEUTERING_REQUEST = 3;
 export const MAX_DAY_LIMIT_FOR_USER_CANCEL_NEUTERING_REQUEST = 1;
 
+export const MAX_CANCELLATIONS_PER_WEEK = 3; /* to prevent spam cancel on neutering and emergency */
+
 export const MIN_PET_AGE_FOR_NEUTERING = 3; /* in months */
 export const MAX_PET_AGE_FOR_NEUTERING = 96; /* 8 years */
 

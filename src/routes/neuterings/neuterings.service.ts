@@ -11,7 +11,8 @@ import {
     MAX_MONTH_LIMIT_FOR_NEUTERING_REQUEST,
     BRACHYCEPHALIC_BREEDS,
     NEUTERING_QUOTAS,
-    MEDICAL_RECORDS_MAP
+    MEDICAL_RECORDS_MAP,
+    MAX_CANCELLATIONS_PER_WEEK
 } from "../../constants/constants";
 
 /* frontend will receive absolute 00:00 dates in UTC-0 it must not convert the date to local timezone or it may
@@ -190,6 +191,22 @@ export const neuteringService = {
 
         if (monthlyCount >= MAX_PETS_PER_MONTH_BY_CPF) {
             throw new HTTPException(400, { message: "Monthly limit of neutering appointments reached for this CPF" });
+        }
+
+        const sevenDaysAgo = new Date(nowInBrazil.getTime() - (7 * 24 * 60 * 60 * 1000));
+
+        const recentCancellations = await prisma.neuteringAppointment.count({
+            where: {
+                userId,
+                status: "CANCELLED",
+                updatedAt: { gte: sevenDaysAgo, lte: nowInBrazil } 
+            }
+        });
+
+        if (recentCancellations >= MAX_CANCELLATIONS_PER_WEEK) {
+            throw new HTTPException(429, { 
+                message: `Maximum limit for appointments cancellation reached. Please wait a few days to schedule online again, or contact the clinic directly.` 
+            });
         }
 
         /* if it is here, pet is not brachycephalic (must have date) or user is not an admin */
