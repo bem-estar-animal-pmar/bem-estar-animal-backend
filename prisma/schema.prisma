@@ -390,6 +390,8 @@ model AdoptionRequest {
   adopterCity          String
   adopterState         String
   adopterNumber        String
+  
+  termsAccepted         Boolean   @default(false)
 
   adoptedAt DateTime?     
 
