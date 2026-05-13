@@ -254,7 +254,7 @@ export const petsService = {
 
     /* admin only services */
 
-    /* admins are allowed to create pets for other users, mostly happens after an emergency completion */
+    /* admins are allowed to create pets for other users */
     async createByAdmin(targetUserId: string, userRole: string, data: AdminCreatePetInput) {
         if (userRole !== "ADMIN") {
             throw new HTTPException(401, { message: "Unauthorized" });
@@ -267,6 +267,69 @@ export const petsService = {
         if (!userExists) {
             throw new HTTPException(401, { message: "User not found" });
         }
+        return await prisma.pet.create({
+            data: {
+                ...data,
+                ownerId: targetUserId
+            }
+        });
+    },
+
+    /* this route is for admin to create after an emergency completion, automatically sets an adoption request if the user choose
+    to adopt the pet */
+    async CreateAfterEmergencyByAdmin(targetUserId: string, userRole: string, data: AdminCreatePetInput) {
+        if (userRole !== "ADMIN") {
+            throw new HTTPException(401, { message: "Unauthorized" });
+        }
+        const userExists = await prisma.user.findUnique({
+            where: {
+                id: targetUserId
+            }
+        })
+        if (!userExists) {
+            throw new HTTPException(401, { message: "User not found" });
+        }
+
+        const nowInBrazilShort = new Date().toLocaleString("pt-BR", {
+            timeZone: "America/Sao_Paulo",
+            dateStyle: "short",
+            timeStyle: "short"
+        });
+
+        const initialHistory = `[${nowInBrazilShort}] Aprovado automaticamente após atendimento emergencial. ${userExists.name} ${userExists.lastName} manifestou interesse em adotar o pet`;
+
+        /* if it is has_owner user decided to adopt the pet, we create an adopt request */
+        if (data.homeStatus === "HAS_OWNER") {
+            const updatedPet = await prisma.$transaction(async (tx) => {
+                const pet = await tx.pet.create({
+                    data: {
+                        ...data,
+                        ownerId: targetUserId
+                    }
+                });
+
+                await tx.adoptionRequest.create({
+                    data: {
+                        adopterName: userExists.name,
+                        adopterEmail: userExists.email,
+                        adopterPhone: userExists.phone,
+                        adopterCep: userExists.cep,
+                        adopterStreet: userExists.street,
+                        adopterNeighborhood: userExists.neighborhood,
+                        adopterCity: userExists.city,
+                        adopterState: userExists.state,
+                        adopterNumber: userExists.number,
+                        adoptedAt: new Date(),
+                        petId: pet.id,
+                        history: initialHistory,
+                        status: "APPROVED"
+                    }
+                });
+                return pet;
+            });
+            return updatedPet;
+        }
+
         return await prisma.pet.create({
             data: {
                 ...data,

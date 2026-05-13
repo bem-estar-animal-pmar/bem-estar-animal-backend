@@ -114,9 +114,9 @@ app.post('/', async (ctx) => {
 })
 
 /* @desc admin create a new pet for user, skipping any limit rules
-   @route POST https://example.com/api/pets/admin
+   @route POST https://example.com/api/pets/admin/create-after-emergency
    @access private (ADMIN) */
-app.post('/admin', async (ctx) => {
+app.post('/admin/create-after-emergency', async (ctx) => {
 	const user = ctx.get("user")!;
 
 	const body = await ctx.req.json();
@@ -129,7 +129,7 @@ app.post('/admin', async (ctx) => {
 	const role = user.role ?? "USER"; 
 	const targetUserId = validation.data.ownerId || user.id;
 
-	const newPet = await petsService.createByAdmin(targetUserId, role, validation.data);
+	const newPet = await petsService.CreateAfterEmergencyByAdmin(targetUserId, role, validation.data);
 	return ctx.json(newPet, 201);
 })
 
