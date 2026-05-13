@@ -193,13 +193,14 @@ export const neuteringService = {
             throw new HTTPException(400, { message: "Monthly limit of neutering appointments reached for this CPF" });
         }
 
-        const sevenDaysAgo = new Date(nowInBrazil.getTime() - (7 * 24 * 60 * 60 * 1000));
+        const now = new Date(); 
+        const sevenDaysAgo = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
 
         const recentCancellations = await prisma.neuteringAppointment.count({
             where: {
                 userId,
                 status: "CANCELLED",
-                updatedAt: { gte: sevenDaysAgo, lte: nowInBrazil } 
+                updatedAt: { gte: sevenDaysAgo, lte: now } 
             }
         });
 
