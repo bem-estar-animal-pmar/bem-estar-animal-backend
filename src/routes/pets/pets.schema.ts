@@ -41,7 +41,12 @@ const breedRefinementMessage = {
     path: ["breed"],
 };
 
-export const createPetSchema = basePetSchema.refine(breedRefinement, breedRefinementMessage);
+export const createPetSchema = basePetSchema.extend({
+    homeStatus: z.enum([
+        "HAS_OWNER",
+        "TEMPORARY_HOME",
+    ]).optional()
+}).refine(breedRefinement, breedRefinementMessage);
 
 export const adminCreatePetSchema = basePetSchema.extend({
     ownerId: z.string()
