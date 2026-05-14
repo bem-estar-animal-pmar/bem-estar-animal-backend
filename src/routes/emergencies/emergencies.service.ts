@@ -404,29 +404,88 @@ export const emergencyService = {
             }
         }
 
-        /* Prepare the history log if the status is changing and a medical record exists */
+        /* prepare the history log if status, date, or period are changing and a medical record exists */
         let medicalRecordUpdate = undefined;
-        if (data.status && data.status !== appointment.status && appointment.medicalRecord) {
-            const nowInBrazil = new Date().toLocaleString("pt-BR", {
+        if (appointment.medicalRecord) {
+            const nowInBrazilShort = new Date().toLocaleString("pt-BR", {
                 timeZone: "America/Sao_Paulo",
                 dateStyle: "short",
                 timeStyle: "short"
             });
 
             const creator = `pelo administrador ${user.name}`;
-            const logEntry = `[${nowInBrazil}] Status alterado de ${MEDICAL_RECORDS_MAP[appointment.status]} para ${MEDICAL_RECORDS_MAP[data.status]} ${creator}`;
-           
-            /* if the admin is attaching a new petId during this status update, we also update the medical record's petId */
-            medicalRecordUpdate = {
-                update: {
-                    petId: data.petId || appointment.medicalRecord.petId,
-                    history: appointment.medicalRecord.history
-                        ? `${appointment.medicalRecord.history}\n${logEntry}`
-                        : logEntry
+            const logEntries: string[] = [];
+
+            /* 1. Check for Status changes */
+            if (data.status !== undefined && data.status !== appointment.status) {
+                logEntries.push(`[${nowInBrazilShort}] Status alterado de ${MEDICAL_RECORDS_MAP[appointment.status] || appointment.status} para ${MEDICAL_RECORDS_MAP[data.status] || data.status} ${creator}`);
+            }
+
+            /* 2. Check for Date changes */
+            if (data.scheduleDate !== undefined) {
+                const newDateMs = data.scheduleDate ? new Date(data.scheduleDate).getTime() : null;
+                const oldDateMs = appointment.scheduleDate ? new Date(appointment.scheduleDate).getTime() : null;
+
+                if (newDateMs !== oldDateMs) {
+                    const formatUtcDateBR = (d: Date | string | null | undefined) => {
+                        if (!d) return "Não definida";
+                        const dateObj = new Date(d);
+                        const day = String(dateObj.getUTCDate()).padStart(2, '0');
+                        const month = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
+                        const year = dateObj.getUTCFullYear();
+                        return `${day}/${month}/${year}`;
+                    };
+                    
+                    logEntries.push(`[${nowInBrazilShort}] Data alterada de ${formatUtcDateBR(appointment.scheduleDate)} para ${formatUtcDateBR(data.scheduleDate)} ${creator}`);
                 }
-            };
+            }
+
+            /* 3. Check for Period changes */
+            if (data.period !== undefined && data.period !== appointment.period) {
+                const formatPeriod = (p: string | null | undefined) => {
+                    if (p === "MORNING") return "Manhã";
+                    if (p === "AFTERNOON") return "Tarde";
+                    return "Não definido";
+                };
+                
+                logEntries.push(`[${nowInBrazilShort}] Período alterado de ${formatPeriod(appointment.period)} para ${formatPeriod(data.period)} ${creator}`);
+            }
+
+            /* If there are any changes to log, group them and update */
+            if (logEntries.length > 0) {
+                const newLogs = logEntries.join('\n');
+                medicalRecordUpdate = {
+                    update: {
+                        history: appointment.medicalRecord.history
+                            ? `${appointment.medicalRecord.history}\n${newLogs}`
+                            : newLogs
+                    }
+                };
+            }
         }
-       
+
+        /* rule: if admin set as NO_SHOW, we automatically block the user for a month */
+        if (data.status === "NO_SHOW" && appointment.status !== "NO_SHOW") {
+            const blockUntilDate = new Date();
+            blockUntilDate.setDate(blockUntilDate.getDate() + 30); /* add 30 days */
+
+            /* we use transaction to update appointment and user status at the same time */
+            return await prisma.$transaction([
+                prisma.neuteringAppointment.update({
+                    where: { id: appointmentId },
+                    data: {
+                        ...data,
+                        medicalRecord: medicalRecordUpdate
+                    }
+                }),
+                prisma.user.update({
+                    where: { id: appointment.userId },
+                    data: { blockedUntil: blockUntilDate }
+                })
+            ]);
+        }
+
+
         /* punishment also happens if the emergency request was NO_SHOW */
         if (data.status === "NO_SHOW" && appointment.status !== "NO_SHOW") {
             const blockUntilDate = new Date();
