@@ -294,6 +294,8 @@ model EmergencyAppointment {
   gender          PetGender?
   size            PetSize
   description     String?         @db.VarChar(1000)
+
+  triageData      Json?
   
   /* date and period are defined by the clinic */
   scheduleDate    DateTime?

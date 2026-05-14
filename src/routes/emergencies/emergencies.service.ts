@@ -1,6 +1,6 @@
 import { prisma } from "../../lib/prisma.js";
 import { HTTPException } from "hono/http-exception";
-import type { CreateEmergencyInput, AdminCreateEmergencyInput, ListEmergenciesQueryInput, UpdateEmergencyStatusInput } from "./emergencies.schema";
+import type { CreateEmergencyInput, AdminCreateEmergencyInput, ListEmergenciesQueryInput, UpdateEmergencyStatusInput, TriageData } from "./emergencies.schema";
 import { MEDICAL_RECORDS_MAP, MAX_DAY_LIMIT_FOR_USER_CANCEL_NEUTERING_REQUEST, MAX_CANCELLATIONS_PER_WEEK } from "../../constants/constants";
 
 /* here, admins should not be able to create emergency requests for other users, but they should be able to attach pets from
@@ -165,7 +165,10 @@ export const emergencyService = {
             throw new HTTPException(401, { message: "Unauthorized" });
         }
 
-        return existingEmergency;
+        return {
+            ...existingEmergency,
+            triageData: existingEmergency.triageData as TriageData | null
+        };
     },
 
     async listByUser(userId: string, filters?: ListEmergenciesQueryInput) {

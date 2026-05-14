@@ -1,5 +1,29 @@
 import { z } from "zod";
 
+const TriageAnswer = z.enum(["YES", "NO", "DONT_KNOW"]);
+
+export const triageDataSchema = z.object({
+    isNeutered: TriageAnswer.optional(),                 /* 1. Castrado? */
+    isConscious: TriageAnswer.optional(),                /* 2. Consciente? */
+    isHeadRaised: TriageAnswer.optional(),               /* 3. Cabeça levantada? */
+    isBleeding: TriageAnswer.optional(),                 /* 4. Sangrando? */
+    bleedingLocation: z.string().max(255).optional(),    /* 5. Onde é o sangramento? */
+    isStanding: TriageAnswer.optional(),                 /* 6. Em pé? */
+    hasStoodUp: TriageAnswer.optional(),                 /* 7. Ficou em pé em algum momento? */
+    supportsAllPaws: TriageAnswer.optional(),            /* 8. Apoia todas as patas? */
+    unsupportedPaw: z.string().max(255).optional(),      /* 9. Qual pata não apoia? */
+    hasWalked: TriageAnswer.optional(),                  /* 10. Já andou? */
+    hasExposedBone: TriageAnswer.optional(),             /* 11. Osso exposto? */
+    exposedBone: z.string().max(255).optional(),         /* 11.2. Qual osso? */
+    breathingDifficulty: TriageAnswer.optional(),        /* 12. Dificuldade de respirar? */
+    hasEaten: TriageAnswer.optional(),                   /* 13. Já comeu? */
+    hasDrunk: TriageAnswer.optional(),                   /* 13. Bebeu água? */
+    hasVomited: TriageAnswer.optional(),                 /* 14. Teve vômito? */
+    hasDiarrhea: TriageAnswer.optional(),                /* (Added from question 14 line) Diarreia? */
+    symptomsDuration: z.string().max(255).optional(),    /* 15. Quantos dias? */
+    otherSymptoms: z.string().max(1000).optional(),      /* 16. Algum outro sintoma? */
+});
+
 export const createEmergencySchema = z.object({
     name: z.string()
         .min(1, "Name cannot be empty")
@@ -14,6 +38,8 @@ export const createEmergencySchema = z.object({
         .optional(),
     petId: z.string() 
         .max(50, "Pet ID must be less than 50 characters")
+        .optional(),
+    triageData: triageDataSchema
         .optional(),
     temporaryHomeAccepted: z.coerce.boolean().refine(val => val === true, {
         message: "You must confirm to be a temporary home during the pet treatment"
@@ -32,6 +58,8 @@ export const adminCreateEmergencySchema = z.object({
         .max(28, "Name must be less than 28 characters"),
     petId: z.string() 
         .max(50, "Pet ID must be less than 50 characters")
+        .optional(),
+    triageData: triageDataSchema
         .optional(),
     species: z.enum(["DOG", "CAT"]),
     gender: z.enum(["MALE", "FEMALE"])
@@ -96,6 +124,7 @@ export const updateEmergencyStatusSchema = z.object({
 });
 
 export type CreateEmergencyInput = z.infer<typeof createEmergencySchema>;
+export type TriageData = z.infer<typeof triageDataSchema>;
 export type AdminCreateEmergencyInput = z.infer<typeof adminCreateEmergencySchema>;
 export type ListEmergenciesQueryInput = z.infer<typeof listEmergenciesQuerySchema>;
 export type UpdateEmergencyStatusInput = z.infer<typeof updateEmergencyStatusSchema>;
