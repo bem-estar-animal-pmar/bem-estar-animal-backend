@@ -69,10 +69,7 @@ export const adminCreateEmergencySchema = z.object({
         .min(10, "Please provide more details about the emergency")
         .max(500, "Description is too long")
         .optional(),
-    scheduleDate: z.coerce.date().transform(d => 
-        new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
-    ), /* schedule and period are optional because users dont set it, but an admin creating the table can set it */
-    period: z.enum(["MORNING", "AFTERNOON"]),
+    scheduleDate: z.coerce.date(),
     status: z.enum(["PENDING", "CONFIRMED", "COMPLETED", "NO_SHOW"]),
 });
 
@@ -104,9 +101,8 @@ export const listEmergenciesQuerySchema = z.object({
 
 export const updateEmergencyStatusSchema = z.object({
     status: z.enum(["PENDING", "CONFIRMED", "COMPLETED", "NO_SHOW", "CANCELLED"]).optional(),
-    scheduleDate: z.coerce.date().transform(d => 
-        new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
-    ).optional(),
+    scheduleDate: z.coerce.date()
+        .optional(),
     period: z.enum(["MORNING", "AFTERNOON"])
         .optional(),
     petId: z.string() 

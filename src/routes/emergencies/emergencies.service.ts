@@ -213,14 +213,17 @@ export const emergencyService = {
 
         /* rule: you can only cancel confirmed appointments > 24 hours before the appointment */
         if (user.role !== "ADMIN" && appointment.status === "CONFIRMED" && appointment.scheduleDate !== null) {
-            const nowInBrazil = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
-            const today = new Date(Date.UTC(nowInBrazil.getFullYear(), nowInBrazil.getMonth(), nowInBrazil.getDate()));
-            const msInADay = 1000 * 60 * 60 * 24;
-            const daysDifference = (appointment.scheduleDate.getTime() - today.getTime()) / msInADay;
+            // const nowInBrazil = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+            const now = new Date();
+            const msInAnHour = 1000 * 60 * 60;
+            
+            const hoursDifference = (appointment.scheduleDate.getTime() - now.getTime()) / msInAnHour;
+            const requiredHoursLimit = MAX_DAY_LIMIT_FOR_USER_CANCEL_NEUTERING_REQUEST * 24;
 
-
-            if (daysDifference < MAX_DAY_LIMIT_FOR_USER_CANCEL_NEUTERING_REQUEST) {
-                throw new HTTPException(400, { message: `Cancellations must be made at least ${MAX_DAY_LIMIT_FOR_USER_CANCEL_NEUTERING_REQUEST * 24} hours in advance. If you still want to cancel contact the clinic` });
+            if (hoursDifference < requiredHoursLimit) {
+                throw new HTTPException(400, { 
+                    message: `Cancellations must be made at least ${requiredHoursLimit} hours in advance. se quiser cancelar, entre em contato com a clínica.` 
+                });
             }
         }
 
