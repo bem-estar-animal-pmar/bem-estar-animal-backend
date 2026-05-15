@@ -322,6 +322,7 @@ export const petsService = {
                         adoptedAt: new Date(),
                         petId: pet.id,
                         history: initialHistory,
+                        termsAccepted: true,
                         status: "APPROVED"
                     }
                 });
