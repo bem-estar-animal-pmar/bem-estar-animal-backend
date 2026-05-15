@@ -89,8 +89,8 @@ export const emergencyService = {
             });
         }
 
-        const creator = userRole === "ADMIN" ? `pelo administrador ${user.name}` : `pelo usuário ${user.name}`;
-        const initialHistory = `[${nowInBrazilShort}] Pedido criado com status ${MEDICAL_RECORDS_MAP["PENDING"]} ${creator}.`;
+        const creator = `pelo responsável`;
+        const initialHistory = `[${nowInBrazilShort}] Pedido criado com status "${MEDICAL_RECORDS_MAP["PENDING"]}" ${creator}.`;
 
         return await prisma.emergencyAppointment.create({
             data: {
@@ -234,8 +234,8 @@ export const emergencyService = {
                 dateStyle: "short",
                 timeStyle: "short"
             });
-            const creator = user.role === "ADMIN" ? `pelo administrador ${user.name}` : "pelo tutor";
-            const logEntry = `[${nowInBrazilShort}] Status alterado para ${MEDICAL_RECORDS_MAP["CANCELLED"]} ${creator}`;
+            const creator = user.role === "ADMIN" ? `pelo administrador ${user.name}` : "pelo responsável";
+            const logEntry = `[${nowInBrazilShort}] Status alterado para "${MEDICAL_RECORDS_MAP["CANCELLED"]}" ${creator}`;
 
             medicalRecordUpdate = {
                 update: {
@@ -265,6 +265,10 @@ export const emergencyService = {
 
         if (!user) {
             throw new HTTPException(404, { message: "User not found" });
+        }
+
+        if (user.role !== "ADMIN") {
+            throw new HTTPException(401, { message: "Unauthorized" });
         }
 
         let {name, species, gender, size} = {...data}
@@ -306,8 +310,8 @@ export const emergencyService = {
             timeStyle: "short"
         });
 
-        const creator = userRole === "ADMIN" ? `pelo administrador ${user.name}` : `pelo tutor ${user.name}`;
-        const initialHistory = `[${nowInBrazilShort}] Pedido criado com status ${MEDICAL_RECORDS_MAP[data.status]} ${creator}.`;
+        const creator = `pelo administrador ${user.name}`;
+        const initialHistory = `[${nowInBrazilShort}] Pedido criado com status "${MEDICAL_RECORDS_MAP[data.status]}" ${creator}.`;
 
         return await prisma.emergencyAppointment.create({
             data: {
@@ -418,7 +422,7 @@ export const emergencyService = {
 
             /* 1. Check for Status changes */
             if (data.status !== undefined && data.status !== appointment.status) {
-                logEntries.push(`[${nowInBrazilShort}] Status alterado de ${MEDICAL_RECORDS_MAP[appointment.status] || appointment.status} para ${MEDICAL_RECORDS_MAP[data.status] || data.status} ${creator}`);
+                logEntries.push(`[${nowInBrazilShort}] Status alterado de "${MEDICAL_RECORDS_MAP[appointment.status] || appointment.status}" para "${MEDICAL_RECORDS_MAP[data.status] || data.status}" ${creator}`);
             }
 
             /* 2. Check for Date changes */
@@ -433,10 +437,16 @@ export const emergencyService = {
                         const day = String(dateObj.getUTCDate()).padStart(2, '0');
                         const month = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
                         const year = dateObj.getUTCFullYear();
-                        return `${day}/${month}/${year}`;
+                        
+                        // Add hour and minute extraction
+                        const hours = String(dateObj.getUTCHours()).padStart(2, '0');
+                        const minutes = String(dateObj.getUTCMinutes()).padStart(2, '0');
+                        
+                        // Return formatted string with time included
+                        return `${day}/${month}/${year} às ${hours}:${minutes}`;
                     };
                     
-                    logEntries.push(`[${nowInBrazilShort}] Data alterada de ${formatUtcDateBR(appointment.scheduleDate)} para ${formatUtcDateBR(data.scheduleDate)} ${creator}`);
+                    logEntries.push(`[${nowInBrazilShort}] Data e/ou hora alterada de "${formatUtcDateBR(appointment.scheduleDate)}" para "${formatUtcDateBR(data.scheduleDate)}" ${creator}`);
                 }
             }
 
@@ -448,7 +458,7 @@ export const emergencyService = {
                     return "Não definido";
                 };
                 
-                logEntries.push(`[${nowInBrazilShort}] Período alterado de ${formatPeriod(appointment.period)} para ${formatPeriod(data.period)} ${creator}`);
+                logEntries.push(`[${nowInBrazilShort}] Período alterado de "${formatPeriod(appointment.period)}" para "${formatPeriod(data.period)}" ${creator}"`);
             }
 
             /* If there are any changes to log, group them and update */

@@ -48,7 +48,7 @@ export const adoptionsService = {
             timeStyle: "short"
         });
 
-        const initialHistory = `[${nowInBrazilShort}] Pedido criado com status ${ADOPTIONS_HISTORY_MAP["PENDING"]} pelo tutor.`;
+        const initialHistory = `[${nowInBrazilShort}] Pedido criado com status "${ADOPTIONS_HISTORY_MAP["PENDING"]}" pelo responsável.`;
 
         return await prisma.giveUpRequest.create({
             data: {
@@ -212,7 +212,7 @@ export const adoptionsService = {
             timeStyle: "short"
         });
 
-        const logEntry = `[${nowInBrazil}] Status alterado de ${ADOPTIONS_HISTORY_MAP[request.status]} para ${ADOPTIONS_HISTORY_MAP[data.status]} pelo administrador ${userName}`;
+        const logEntry = `[${nowInBrazil}] Status alterado de "${ADOPTIONS_HISTORY_MAP[request.status]}" para "${ADOPTIONS_HISTORY_MAP[data.status]}" pelo administrador ${userName}`;
         
         let historyUpdate = request.history ? `${request.history}\n${logEntry}` : logEntry;
 
@@ -305,7 +305,7 @@ export const adoptionsService = {
             timeStyle: "short"
         });
 
-        const logEntry = `[${nowInBrazil}] Status alterado de ${ADOPTIONS_HISTORY_MAP[request.status]} para ${ADOPTIONS_HISTORY_MAP[data.status]} pelo administrador ${userName}`;
+        const logEntry = `[${nowInBrazil}] Status alterado de "${ADOPTIONS_HISTORY_MAP[request.status]}" para "${ADOPTIONS_HISTORY_MAP[data.status]}" pelo administrador ${userName}`;
         
         let historyUpdate = request.history ? `${request.history}\n${logEntry}` : logEntry;
 

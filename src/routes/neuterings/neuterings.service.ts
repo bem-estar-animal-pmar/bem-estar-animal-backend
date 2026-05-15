@@ -168,8 +168,8 @@ export const neuteringService = {
             timeStyle: "short"
         });
 
-        const creator = `pelo tutor ${user.name}`;
-        const initialHistory = `[${nowInBrazilShort}] Pedido criado com status ${MEDICAL_RECORDS_MAP[neuteringStatus]} ${creator}.`;
+        const creator = `pelo responsável`;
+        const initialHistory = `[${nowInBrazilShort}] Pedido criado com status "${MEDICAL_RECORDS_MAP[neuteringStatus]}" ${creator}.`;
 
         /* rule 1: if user is blocked by NO_SHOW, don't allow the request */
         if (user.blockedUntil && user.blockedUntil > new Date()) {
@@ -409,8 +409,8 @@ export const neuteringService = {
                 dateStyle: "short",
                 timeStyle: "short"
             });
-            const creator = user.role === "ADMIN" ? `pelo administrador ${user.name}` : "pelo tutor";
-            const logEntry = `[${nowInBrazilShort}] Status alterado para ${MEDICAL_RECORDS_MAP["CANCELLED"]} ${creator}`;
+            const creator = user.role === "ADMIN" ? `pelo administrador ${user.name}` : "pelo responsável";
+            const logEntry = `[${nowInBrazilShort}] Status alterado para "${MEDICAL_RECORDS_MAP["CANCELLED"]}" ${creator}`;
 
             medicalRecordUpdate = {
                 update: {
@@ -534,7 +534,7 @@ export const neuteringService = {
         });
 
         const creator = `pelo administrador ${user.name}`
-        const initialHistory = `[${nowInBrazilShort}] Pedido criado com status ${MEDICAL_RECORDS_MAP[data.status]} ${creator}.`;
+        const initialHistory = `[${nowInBrazilShort}] Pedido criado com status "${MEDICAL_RECORDS_MAP[data.status]}" ${creator}.`;
 
         return await prisma.neuteringAppointment.create({
             data: {
@@ -592,7 +592,7 @@ export const neuteringService = {
 
             /* 1. Check for Status changes */
             if (data.status !== undefined && data.status !== appointment.status) {
-                logEntries.push(`[${nowInBrazilShort}] Status alterado de ${MEDICAL_RECORDS_MAP[appointment.status] || appointment.status} para ${MEDICAL_RECORDS_MAP[data.status] || data.status} ${creator}`);
+                logEntries.push(`[${nowInBrazilShort}] Status alterado de "${MEDICAL_RECORDS_MAP[appointment.status] || appointment.status}" para "${MEDICAL_RECORDS_MAP[data.status] || data.status}" ${creator}`);
             }
 
             /* 2. Check for Date changes */
