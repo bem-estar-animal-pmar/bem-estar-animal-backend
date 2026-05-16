@@ -310,7 +310,7 @@ export const petsService = {
 
                 await tx.adoptionRequest.create({
                     data: {
-                        adopterName: userExists.name,
+                        adopterName: `${userExists.name} ${userExists.lastName}`,
                         adopterEmail: userExists.email,
                         adopterPhone: userExists.phone,
                         adopterCep: userExists.cep,
