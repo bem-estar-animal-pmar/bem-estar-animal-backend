@@ -310,6 +310,27 @@ export const adoptionsService = {
         let historyUpdate = request.history ? `${request.history}\n${logEntry}` : logEntry;
 
         if (data.status === "APPROVED" && request.status !== "APPROVED") {
+
+            const activeNeutering = await prisma.neuteringAppointment.count({
+                where: {
+                    petId: request.petId,
+                    status: { in: ["PENDING", "CONFIRMED", "AWAITING_EXAMS"] }
+                }
+            });
+
+            const activeEmergency = await prisma.emergencyAppointment.count({
+                where: {
+                    petId: request.petId,
+                    status: { in: ["PENDING", "CONFIRMED"] }
+                }
+            });
+            
+            if (activeEmergency || activeNeutering) {
+                throw new HTTPException(400, {
+                    message: "You cannot approve a adoption request for a pet that has an active neutering or emergency. Please resolve them first."
+                });
+            }
+
             await prisma.$transaction(async (tx) => {
                 const petUpdateResult = await tx.pet.updateMany({
                     where: {
