@@ -75,7 +75,7 @@ export const emergencyService = {
         const now = new Date(); 
         const sevenDaysAgo = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
 
-        const recentCancellations = await prisma.neuteringAppointment.count({
+        const recentCancellations = await prisma.emergencyAppointment.count({
             where: {
                 userId,
                 status: "CANCELLED",
