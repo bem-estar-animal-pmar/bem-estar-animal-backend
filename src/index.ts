@@ -3,6 +3,8 @@ import { cors } from "hono/cors"
 import { auth } from "./lib/auth";
 import { errorMiddleware } from "./middleware/errorHandler";
 
+import "./jobs/appointments.jobs"
+
 import petsRouter from "./routes/pets/pets.routes"
 import neuteringRouter from "./routes/neuterings/neuterings.routes"
 import emergencyRouter from "./routes/emergencies/emergencies.routes"
