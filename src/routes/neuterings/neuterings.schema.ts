@@ -1,3 +1,4 @@
+
 import { z } from "zod";
 
 export const createNeuteringSchema = z.object({ /* users are allowed to create neutering requests */
@@ -82,3 +83,12 @@ export type AdminCreateNeuteringInput = z.infer<typeof adminCreateNeuteringSchem
 export type UpdateNeuteringStatusInput = z.infer<typeof updateNeuteringStatusSchema>;
 export type ListNeuteringsQueryInput = z.infer<typeof listNeuteringsQuerySchema>;
 export type calendarQueryInput = z.infer<typeof calendarQuerySchema>;
+
+export const updateNeuteringLimitsSchema = z.object({
+    weekdayMorningLimit: z.coerce.number().int().min(0).optional(),
+    weekdayAfternoonLimit: z.coerce.number().int().min(0).optional(),
+    fridayMorningLimit: z.coerce.number().int().min(0).optional(),
+    fridayAfternoonLimit: z.coerce.number().int().min(0).optional(),
+});
+
+export type UpdateNeuteringLimitsInput = z.infer<typeof updateNeuteringLimitsSchema>;

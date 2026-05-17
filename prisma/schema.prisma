@@ -399,3 +399,12 @@ model AdoptionRequest {
 
   createdAt     DateTime      @default(now())
 }
+
+model NeuteringConfig {
+  id                    Int @id @default(1)
+  weekdayMorningLimit   Int @default(12)
+  weekdayAfternoonLimit Int @default(6)
+  fridayMorningLimit    Int @default(20)
+  fridayAfternoonLimit  Int @default(7)
+  updatedAt             DateTime @updatedAt
+}

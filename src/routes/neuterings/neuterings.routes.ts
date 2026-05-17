@@ -2,14 +2,14 @@ import { Hono } from 'hono';
 import { authMiddleware, type AuthEnv } from '../../middleware/authHandler';
 import { HTTPException } from 'hono/http-exception';
 import { neuteringService } from "./neuterings.service";
-import { createNeuteringSchema, adminCreateNeuteringSchema, listNeuteringsQuerySchema, updateNeuteringStatusSchema, calendarQuerySchema } from './neuterings.schema';
+import { createNeuteringSchema, adminCreateNeuteringSchema, listNeuteringsQuerySchema, updateNeuteringStatusSchema, calendarQuerySchema, updateNeuteringLimitsSchema } from './neuterings.schema';
 
 const app = new Hono<AuthEnv>();
 
 app.use('*', authMiddleware);
 
 /* @desc list current user's neutering appointments
-   @route GET /api/neutering/me
+   @route GET /api/neuterings/me
    @access private (USER, ADMIN) */
 app.get('/me', async (ctx) => {
     const user = ctx.get("user")!;
@@ -25,7 +25,7 @@ app.get('/me', async (ctx) => {
 });
 
 /* @desc list all neutering appointments (with filters and pagination)
-   @route GET /api/neutering?page=1&limit=20
+   @route GET /api/neuterings?page=1&limit=20
    @access private (ADMIN) */
 app.get('/', async (ctx) => {
     const user = ctx.get("user")!;
@@ -41,8 +41,8 @@ app.get('/', async (ctx) => {
     return ctx.json(appointments, 200);
 });
 
-/* @desc get a specific pet data
-   @route GET https://example.com/api/pets/details/:id
+/* @desc get a specific neutering details
+   @route GET https://example.com/api/neuterings/details/:id
    @access private (USER, ADMIN) */
 app.get('/details/:id', async (ctx) => {
     const user = ctx.get("user")!; /* authMiddle already make sure 'user' exists */
@@ -56,7 +56,7 @@ app.get('/details/:id', async (ctx) => {
 
 
 /* @desc create a new neutering appointment
-   @route POST /api/neutering
+   @route POST /api/neuterings
    @access private (USER, ADMIN) */
 app.post('/', async (ctx) => {
     const user = ctx.get("user")!;
@@ -74,7 +74,7 @@ app.post('/', async (ctx) => {
 });
 
 /* @desc create a new neutering appointment as admin, usually for registering completed appointments
-   @route POST /api/neutering/admin-register
+   @route POST /api/neuterings/admin-register
    @access private (ADMIN) */
 app.post('/admin-register', async (ctx) => {
     const user = ctx.get("user")!;
@@ -92,9 +92,9 @@ app.post('/admin-register', async (ctx) => {
 });
 
 /* @desc admin updates appointment status (can cancel) (or reschedules)
-   @route PATCH /api/neutering/:id/status
+   @route PATCH /api/neutering/status/:id
    @access private (ADMIN) */
-app.patch('/:id/status', async (ctx) => {
+app.patch('/status/:id', async (ctx) => {
     const user = ctx.get("user")!;
     const appointmentId = ctx.req.param('id');
 
@@ -112,7 +112,7 @@ app.patch('/:id/status', async (ctx) => {
 /* @desc user cancels their own appointment
    @route PATCH /api/neutering/:id/cancel
    @access private (USER) */
-app.patch('/:id/cancel', async (ctx) => {
+app.patch('/cancel/:id', async (ctx) => {
     const user = ctx.get("user")!;
     const appointmentId = ctx.req.param('id');
 
@@ -120,7 +120,7 @@ app.patch('/:id/cancel', async (ctx) => {
     return ctx.json({ data: cancelled, message: "Appointment cancelled successfully" }, 200);
 });
 
-export default app;
+/* neutering quotas related routes */
 
 /* @desc get appointment counts for calendar distribution
    @route GET /api/neutering/calendar?startDate=2026-05-01&endDate=2026-05-31
@@ -145,3 +145,24 @@ app.get('/calendar', async (ctx) => {
     
     return ctx.json(calendarData, 200);
 });
+
+app.patch('/quotas', async (ctx) => {
+    const user = ctx.get("user")!;
+    const body = await ctx.req.json();
+    const validation = updateNeuteringLimitsSchema.safeParse(body);
+
+    if (!validation.success) {
+        throw new HTTPException(400, { message: "Invalid body", cause: validation.error });
+    }
+
+    const updated = await neuteringService.updateLimits(user.id, validation.data);
+    return ctx.json({ data: updated, message: "Quotas updated successfully" }, 200);
+});
+
+
+app.get('/quotas', async (ctx) => {
+    const quotas = await neuteringService.getQuotas();
+    return ctx.json(quotas, 200);
+});
+
+export default app;

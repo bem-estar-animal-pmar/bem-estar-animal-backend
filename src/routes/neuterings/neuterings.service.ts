@@ -1,6 +1,7 @@
+
 import { prisma } from "../../lib/prisma.js";
 import { HTTPException } from "hono/http-exception";
-import type { CreateNeuteringInput, AdminCreateNeuteringInput, UpdateNeuteringStatusInput, ListNeuteringsQueryInput } from "./neuterings.schema";
+import type { CreateNeuteringInput, AdminCreateNeuteringInput, UpdateNeuteringStatusInput, ListNeuteringsQueryInput, UpdateNeuteringLimitsInput } from "./neuterings.schema";
 import {
     MAX_PETS_PER_MONTH_BY_CPF,
     MAX_DAY_LIMIT_FOR_USER_CANCEL_NEUTERING_REQUEST,
@@ -23,68 +24,6 @@ to the request on the moment of creation */
 export const neuteringService = {
 
     /* user, admin services */
-
-    /* count neutering appointments per day and period and return AVAILABLE COUNT */
-    async getCalendarCounts(startDate: Date, endDate: Date) {
-        const counts = await prisma.neuteringAppointment.groupBy({
-            by: ['scheduleDate', 'period'],
-            _count: {
-                id: true
-            },
-            where: {
-                scheduleDate: {
-                    gte: startDate,
-                    lte: endDate
-                },
-                status: { in: ["PENDING", "CONFIRMED", "AWAITING_EXAMS", "COMPLETED"] },
-                period: { not: null }
-            }
-        });
-
-        /* map all ocuped days */
-        const filledSlots = counts.reduce((acc, curr) => {
-            if (!curr.scheduleDate || !curr.period) return acc;
-            
-            const dateStr = curr.scheduleDate.toISOString().split('T')[0];
-            if (!acc[dateStr]) acc[dateStr] = { MORNING: 0, AFTERNOON: 0 };
-            
-            acc[dateStr][curr.period] = curr._count.id;
-            return acc;
-        }, {} as Record<string, Record<string, number>>);
-
-        const calendarData: Record<string, { MORNING: number; AFTERNOON: number }> = {};
-        
-        let currentDate = new Date(startDate);
-
-        /* iterate through each day */
-        while (currentDate <= endDate) {
-            const dateStr = currentDate.toISOString().split('T')[0];
-            const dayOfWeek = currentDate.getUTCDay();
-
-            /* if day is saturday or sunday, available slots is always 0 */
-            if (dayOfWeek === 0 || dayOfWeek === 6) {
-                calendarData[dateStr] = { MORNING: 0, AFTERNOON: 0 };
-            } else {
-                const isFriday = dayOfWeek === 5;
-                const dailyQuota = isFriday ? NEUTERING_QUOTAS.FRIDAY : NEUTERING_QUOTAS.WEEKDAY;
-
-                /* get filled count */
-                const filledMorning = filledSlots[dateStr]?.MORNING || 0;
-                const filledAfternoon = filledSlots[dateStr]?.AFTERNOON || 0;
-
-                /* subtract to the quota limit and save available count */
-                calendarData[dateStr] = {
-                    MORNING: Math.max(0, dailyQuota.MORNING.limit - filledMorning),
-                    AFTERNOON: Math.max(0, dailyQuota.AFTERNOON.limit - filledAfternoon)
-                };
-            }
-
-            /* advances 1 day */
-            currentDate.setUTCDate(currentDate.getUTCDate() + 1);
-        }
-
-        return calendarData;
-    },
 
     async create(userId: string, data: CreateNeuteringInput) {
         const pet = await prisma.pet.findUnique({
@@ -706,5 +645,106 @@ export const neuteringService = {
         if (count >= limit) {
             throw new HTTPException(400, { message: "No more slots available for this date and period" });
         }
+    },
+
+    /* neutering quota related services */
+
+    async getQuotas() {
+        let config = await prisma.neuteringConfig.findUnique({ where: { id: 1 } });
+        
+        if (!config) {
+            config = await prisma.neuteringConfig.create({ data: { id: 1 } });
+        }
+
+        return {
+            WEEKDAY: {
+                MORNING: { species: "CAT", limit: config.weekdayMorningLimit },
+                AFTERNOON: { species: "DOG", limit: config.weekdayAfternoonLimit },
+            },
+            FRIDAY: {
+                MORNING: { species: "CAT", gender: "MALE", limit: config.fridayMorningLimit },
+                AFTERNOON: { species: "DOG", gender: "MALE", limit: config.fridayAfternoonLimit },
+            }
+        };
+    },
+
+    async updateLimits(userId: string, data: UpdateNeuteringLimitsInput) {
+        const user = await prisma.user.findUnique({ 
+            where: { id: userId } 
+        });
+
+        if (!user || user.role !== "ADMIN") {
+            throw new HTTPException(401, { message: "Unauthorized" });
+        }
+
+        return await prisma.neuteringConfig.upsert({
+            where: { 
+                id: 1 
+            },
+            update: data,
+            create: {
+                id: 1,
+                weekdayMorningLimit: data.weekdayMorningLimit ?? 12,
+                weekdayAfternoonLimit: data.weekdayAfternoonLimit ?? 6,
+                fridayMorningLimit: data.fridayMorningLimit ?? 20,
+                fridayAfternoonLimit: data.fridayAfternoonLimit ?? 7,
+            }
+        });
+    },
+    
+    async getCalendarCounts(startDate: Date, endDate: Date) {
+        const NEUTERING_QUOTAS = await this.getQuotas();
+
+        const counts = await prisma.neuteringAppointment.groupBy({
+            by: ['scheduleDate', 'period'],
+            _count: {
+                id: true
+            },
+            where: {
+                scheduleDate: {
+                    gte: startDate,
+                    lte: endDate
+                },
+                status: { in: ["PENDING", "CONFIRMED", "AWAITING_EXAMS", "COMPLETED"] },
+                period: { not: null }
+            }
+        });
+
+        /* map all ocuped days */
+        const filledSlots = counts.reduce((acc, curr) => {
+            if (!curr.scheduleDate || !curr.period) return acc;
+            
+            const dateStr = curr.scheduleDate.toISOString().split('T')[0];
+            if (!acc[dateStr]) acc[dateStr] = { MORNING: 0, AFTERNOON: 0 };
+            
+            acc[dateStr][curr.period] = curr._count.id;
+            return acc;
+        }, {} as Record<string, Record<string, number>>);
+
+        const calendarData: Record<string, { MORNING: number; AFTERNOON: number }> = {};
+        let currentDate = new Date(startDate);
+
+        while (currentDate <= endDate) {
+            const dateStr = currentDate.toISOString().split('T')[0];
+            const dayOfWeek = currentDate.getUTCDay();
+
+            if (dayOfWeek === 0 || dayOfWeek === 6) {
+                calendarData[dateStr] = { MORNING: 0, AFTERNOON: 0 };
+            } else {
+                const isFriday = dayOfWeek === 5;
+                const dailyQuota = isFriday ? NEUTERING_QUOTAS.FRIDAY : NEUTERING_QUOTAS.WEEKDAY;
+
+                const filledMorning = filledSlots[dateStr]?.MORNING || 0;
+                const filledAfternoon = filledSlots[dateStr]?.AFTERNOON || 0;
+
+                calendarData[dateStr] = {
+                    MORNING: Math.max(0, dailyQuota.MORNING.limit - filledMorning),
+                    AFTERNOON: Math.max(0, dailyQuota.AFTERNOON.limit - filledAfternoon)
+                };
+            }
+            currentDate.setUTCDate(currentDate.getUTCDate() + 1);
+        }
+
+        return calendarData;
     },
 };
