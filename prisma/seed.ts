@@ -22,7 +22,7 @@ const main = async () => {
             email: SEED_ADMIN_EMAIL,
             password: SEED_ADMIN_PASSWORD,
             name: "SISTEMA",
-            lastName: "Bem-Estar Animal",
+            lastName: "xxxxxxxx",
             phone: "21999999999",
             cpf: "11144477735",
             cep: "20040002",
@@ -41,6 +41,7 @@ const main = async () => {
         data: {
             role: "ADMIN",
             emailVerified: true,
+            lastName: "Bem-Estar Animal",
             phone: "000000000",
             cpf: "00000000000",
             cep: "00000000",
