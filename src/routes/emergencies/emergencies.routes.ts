@@ -91,9 +91,9 @@ app.get('/', async (ctx) => {
 });
 
 /* @desc admin updates emergency status (schedules or completes)
-   @route PATCH /api/emergencies/:id/status
+   @route PATCH /api/emergencies/status/:id
    @access private (ADMIN) */
-app.patch('/:id/status', async (ctx) => {
+app.patch('/status/:id', async (ctx) => {
     const user = ctx.get("user")!;
     const appointmentId = ctx.req.param('id');
 
@@ -109,9 +109,9 @@ app.patch('/:id/status', async (ctx) => {
 });
 
 /* @desc user cancels their own appointment
-   @route PATCH /api/emergencies/:id/cancel
+   @route PATCH /api/emergencies/cancel/:id
    @access private (USER) */
-app.patch('/:id/cancel', async (ctx) => {
+app.patch('/cancel/:id', async (ctx) => {
     const user = ctx.get("user")!;
     const appointmentId = ctx.req.param('id');
 
