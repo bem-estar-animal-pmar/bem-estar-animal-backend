@@ -49,7 +49,7 @@ export const listUsersQuerySchema = z.object({
     email: z.string().
         max(50, "Email must be less than 50 characters")
         .optional(),
-    role: z.enum(["USER", "ADMIN"]).optional(),
+    role: z.enum(["USER", "ADMIN", "MANAGER"]).optional(),
     id: z.string()
         .max(50, "User ID must be less than 50 characters")
         .optional(),
