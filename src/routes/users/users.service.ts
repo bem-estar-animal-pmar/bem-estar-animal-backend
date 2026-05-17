@@ -4,7 +4,7 @@ import { HTTPException } from "hono/http-exception";
 
 export const usersService = {
         async list(userRole: string, filters: ListUsersQueryInput) {
-            if (userRole !== "ADMIN") {
+            if (userRole !== "ADMIN" && userRole !== "MANAGER") {
                 throw new HTTPException(401, { message: "Unauthorized" });
             }
 

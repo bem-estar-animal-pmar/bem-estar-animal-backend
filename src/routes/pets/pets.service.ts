@@ -50,7 +50,7 @@ export const petsService = {
             throw new HTTPException(404, { message: "Pet not found" });
         }
 
-        if (userRole !== "ADMIN" && existingPet.ownerId !== userId) {
+        if (userRole !== "ADMIN" && userRole !== "MANAGER" && existingPet.ownerId !== userId) {
             throw new HTTPException(401, { message: "Unauthorized" });
         }
 
@@ -113,7 +113,7 @@ export const petsService = {
 
     /* admin only: undo a pet adoption */
     async returnPet(petId: string, userName: string, userRole: string) {
-        if (userRole !== "ADMIN") {
+        if (userRole !== "ADMIN" && userRole !== "MANAGER") {
             throw new HTTPException(401, { message: "Unauthorized" });
         }
 
@@ -184,8 +184,8 @@ export const petsService = {
                 species: filters?.species, 
                 gender: filters?.gender,
                 deletedAt: userRole === "USER" ? null : undefined,
-                adoptionStatus: userRole === "ADMIN" ? filters?.adoptionStatus : undefined,
-                homeStatus: userRole === "ADMIN" ? filters?.homeStatus : undefined,
+                adoptionStatus: userRole !== "USER" ? filters?.adoptionStatus : undefined,
+                homeStatus: userRole !== "USER" ? filters?.homeStatus : undefined,
                 name: filters?.name ? {
                     contains: filters.name,
                     mode: 'insensitive'
@@ -225,7 +225,7 @@ export const petsService = {
             throw new HTTPException(404, { message: "Pet not found" });
         }
 
-        if (existingPet.ownerId !== userId && userRole !== "ADMIN") {
+        if (existingPet.ownerId !== userId && userRole !== "ADMIN" && userRole !== "MANAGER") {
             throw new HTTPException(404, { message: "Pet not found" });
         }
 
@@ -256,7 +256,7 @@ export const petsService = {
 
     /* admins are allowed to create pets for other users */
     async createByAdmin(targetUserId: string, userRole: string, data: AdminCreatePetInput) {
-        if (userRole !== "ADMIN") {
+        if (userRole !== "ADMIN" && userRole !== "MANAGER") {
             throw new HTTPException(401, { message: "Unauthorized" });
         }
         const userExists = await prisma.user.findUnique({
@@ -278,7 +278,7 @@ export const petsService = {
     /* this route is for admin to create after an emergency completion, automatically sets an adoption request if the user choose
     to adopt the pet */
     async CreateAfterEmergencyByAdmin(targetUserId: string, userRole: string, data: AdminCreatePetInput) {
-        if (userRole !== "ADMIN") {
+        if (userRole !== "ADMIN" && userRole !== "MANAGER") {
             throw new HTTPException(401, { message: "Unauthorized" });
         }
         const userExists = await prisma.user.findUnique({
@@ -340,7 +340,7 @@ export const petsService = {
     },
 
     async updateByAdmin(petId: string, userId: string, userRole: string, data: AdminUpdatePetInput) {
-        if (userRole !== "ADMIN") {
+        if (userRole !== "ADMIN" && userRole !== "MANAGER") {
             throw new HTTPException(401, { message: "Unauthorized" });
         }
         const existingPet = await prisma.pet.findUnique({
@@ -359,7 +359,7 @@ export const petsService = {
 
     /* admin only */
     async listAll(userRole: string, filters: ListPetsParamsInput) {
-        if (userRole !== "ADMIN") {
+        if (userRole !== "ADMIN" && userRole !== "MANAGER") {
             throw new HTTPException(401, { message: "Unauthorized" });
         }
 
@@ -412,7 +412,7 @@ export const petsService = {
 
     /* admin only */
     async delete(petId: string, userRole: string) {
-        if (userRole !== "ADMIN") {
+        if (userRole !== "ADMIN" && userRole !== "MANAGER") {
             throw new HTTPException(401, { message: "Unauthorized" });
         }
 

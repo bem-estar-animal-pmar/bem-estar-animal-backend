@@ -144,7 +144,7 @@ export const emergencyService = {
                         number: true
                     }
                 },
-                ...(userRole === "ADMIN" && { /* only include medicalRecord if userRole is admin */
+                ...(userRole !== "USER" && { /* only include medicalRecord if userRole is admin */
                     medicalRecord: {
                         select: {
                             id: true,
@@ -161,7 +161,7 @@ export const emergencyService = {
         }
 
         // owner authorization
-        if (userRole !== "ADMIN" && existingEmergency.user.id !== userId) {
+        if (userRole !== "ADMIN" && userRole !== "MANAGER" && existingEmergency.user.id !== userId) {
             throw new HTTPException(401, { message: "Unauthorized" });
         }
 
@@ -203,7 +203,7 @@ export const emergencyService = {
             throw new HTTPException(404, { message: "Appointment not found" });
         }
 
-        if (appointment.userId !== userId && user.role !== "ADMIN") {
+        if (appointment.userId !== userId && user.role !== "ADMIN" && user.role !== "MANAGER") {
             throw new HTTPException(403, { message: "You can only cancel your own appointments" });
         }
 
@@ -212,7 +212,7 @@ export const emergencyService = {
         }
 
         /* rule: you can only cancel confirmed appointments > 24 hours before the appointment */
-        if (user.role !== "ADMIN" && appointment.status === "CONFIRMED" && appointment.scheduleDate !== null) {
+        if (user.role !== "ADMIN" && user.role !== "MANAGER" && appointment.status === "CONFIRMED" && appointment.scheduleDate !== null) {
             // const nowInBrazil = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
             const now = new Date();
             const msInAnHour = 1000 * 60 * 60;
@@ -234,7 +234,7 @@ export const emergencyService = {
                 dateStyle: "short",
                 timeStyle: "short"
             });
-            const creator = user.role === "ADMIN" ? `pelo administrador ${user.name}` : "pelo responsável";
+            const creator = user.role !== "USER" ? `pelo administrador ${user.name}` : "pelo responsável";
             const logEntry = `[${nowInBrazilShort}] Status alterado para "${MEDICAL_RECORDS_MAP["CANCELLED"]}" ${creator}`;
 
             medicalRecordUpdate = {
@@ -267,7 +267,7 @@ export const emergencyService = {
             throw new HTTPException(404, { message: "User not found" });
         }
 
-        if (user.role !== "ADMIN") {
+        if (user.role !== "ADMIN" && user.role !== "MANAGER") {
             throw new HTTPException(401, { message: "Unauthorized" });
         }
 
@@ -334,7 +334,7 @@ export const emergencyService = {
     },
 
     async list(userRole: string, filters: ListEmergenciesQueryInput) {
-        if (userRole !== "ADMIN") {
+        if (userRole !== "ADMIN" && userRole !== "MANAGER") {
             throw new HTTPException(401, { message: "Unauthorized" });
         }
 
@@ -384,7 +384,7 @@ export const emergencyService = {
         if (!user) {
             throw new HTTPException(401, { message: "Unauthorized" });
         }
-        if (user.role !== "ADMIN") {
+        if (user.role !== "ADMIN" && user.role !== "MANAGER") {
             throw new HTTPException(401, { message: "Unauthorized" });
         }
 

@@ -255,7 +255,7 @@ export const neuteringService = {
                         number: true
                     }
                 },
-                ...(userRole === "ADMIN" && { /* only include medicalRecord if userRole is admin */
+                ...(userRole !== "USER" && { /* only include medicalRecord if userRole is admin */
                     medicalRecord: {
                         select: {
                             id: true,
@@ -272,10 +272,7 @@ export const neuteringService = {
         }
 
         // owner authorization
-        if (
-            userRole !== "ADMIN" &&
-            existingNeutering.pet.ownerId !== userId
-        ) {
+        if ( userRole !== "ADMIN" && userRole !== "MANAGER" && existingNeutering.pet.ownerId !== userId ) {
             throw new HTTPException(401, { message: "Unauthorized" });
         }
 
@@ -320,7 +317,7 @@ export const neuteringService = {
             throw new HTTPException(404, { message: "Appointment not found" });
         }
 
-        if (appointment.userId !== userId && user.role !== "ADMIN") {
+        if (appointment.userId !== userId && user.role !== "ADMIN" && user.role !== "MANAGER") {
             throw new HTTPException(403, { message: "You can only cancel your own appointments" });
         }
 
@@ -329,7 +326,7 @@ export const neuteringService = {
         }
 
         /* rule: you can only cancel confirmed appointments > 24 hours before the appointment */
-        if (user.role !== "ADMIN" && appointment.status === "CONFIRMED" && appointment.scheduleDate !== null) {
+        if (user.role !== "ADMIN" && user.role !== "MANAGER" && appointment.status === "CONFIRMED" && appointment.scheduleDate !== null) {
             const nowInBrazil = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
             const today = new Date(Date.UTC(nowInBrazil.getFullYear(), nowInBrazil.getMonth(), nowInBrazil.getDate()));
             const msInADay = 1000 * 60 * 60 * 24;
@@ -348,7 +345,7 @@ export const neuteringService = {
                 dateStyle: "short",
                 timeStyle: "short"
             });
-            const creator = user.role === "ADMIN" ? `pelo administrador ${user.name}` : "pelo responsável";
+            const creator = user.role !== "USER" ? `pelo administrador ${user.name}` : "pelo responsável";
             const logEntry = `[${nowInBrazilShort}] Status alterado para "${MEDICAL_RECORDS_MAP["CANCELLED"]}" ${creator}`;
 
             medicalRecordUpdate = {
@@ -371,7 +368,7 @@ export const neuteringService = {
 
     /* admin only services */
     async list(userRole: string, filters: ListNeuteringsQueryInput) {
-        if (userRole !== "ADMIN") {
+        if (userRole !== "ADMIN" && userRole !== "MANAGER") {
             throw new HTTPException(401, { message: "Unauthorized" });
         }
 
@@ -436,7 +433,7 @@ export const neuteringService = {
             throw new HTTPException(403, { message: "You can only register appointments for clinic pets created by your account" });
         }
 
-        if (user.role !== "ADMIN") {
+        if (user.role !== "ADMIN" && user.role !== "MANAGER") {
             throw new HTTPException(401, { message: "Unauthorized" });
         }
 
@@ -503,7 +500,7 @@ export const neuteringService = {
         if (!user) {
             throw new HTTPException(401, { message: "Unauthorized" });
         }
-        if (user.role !== "ADMIN") {
+        if (user.role !== "ADMIN" && user.role !== "MANAGER") {
             throw new HTTPException(401, { message: "Unauthorized" });
         }
 

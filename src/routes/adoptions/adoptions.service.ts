@@ -101,7 +101,7 @@ export const adoptionsService = {
 
     /* admin only */
     async listGiveUps(userRole: string, filters: ListGiveUpRequestsQueryInput) {
-        if (userRole !== "ADMIN") {
+        if (userRole !== "ADMIN" && userRole != "MANAGER") {
             throw new HTTPException(401, { message: "Unauthorized" });
         }
         
@@ -181,7 +181,7 @@ export const adoptionsService = {
             throw new HTTPException(404, { message: "Give up request not found" });
         }
 
-        if ( userRole !== "ADMIN" && existingRequest.pet.ownerId !== userId ) {
+        if ( userRole !== "ADMIN" && userRole !== "MANAGER" && existingRequest.pet.ownerId !== userId ) {
             throw new HTTPException(401, { message: "Unauthorized" });
         }
 
@@ -190,7 +190,7 @@ export const adoptionsService = {
 
     /* admin only */
     async updateGiveUpStatus(requestId: string, userRole: string, userName: string, data: UpdateGiveUpStatusInput) {
-        if (userRole !== "ADMIN") {
+        if (userRole !== "ADMIN" && userRole !== "MANAGER") {
             throw new HTTPException(401, { message: "Unauthorized" });
         }
 
@@ -275,7 +275,7 @@ export const adoptionsService = {
 
     /* admin only, here they can accept (set pet as adoption), cancel or reject */
     async updateAdoptionStatus(requestId: string, userRole: string, userName: string, data: UpdateAdoptionStatusInput) {
-        if (userRole !== "ADMIN") {
+        if (userRole !== "ADMIN" && userRole !== "MANAGER") {
             throw new HTTPException(401, { message: "Unauthorized" });
         }
 
@@ -436,7 +436,7 @@ export const adoptionsService = {
 
     /* admin only list adoption requests */
     async listAdoptions(userRole: string, filters: ListAdoptionRequestsQueryInput) {
-        if (userRole !== "ADMIN") {
+        if (userRole !== "ADMIN" && userRole !== "MANAGER") {
             throw new HTTPException(401, { message: "Unauthorized" });
         }
         
@@ -478,7 +478,7 @@ export const adoptionsService = {
 
     /* only admins can see adoption request sent by the public */
     async getAdoptionById(neuteringId: string, userRole: string) {
-        if (userRole !== "ADMIN") {
+        if (userRole !== "ADMIN" && userRole !== "MANAGER") {
             throw new HTTPException(401, { message: "Unauthorized" });
         }
 
@@ -518,7 +518,7 @@ export const adoptionsService = {
             throw new HTTPException(404, { message: "Pet not found" });
         }
 
-        if (existingPet.ownerId !== userId && userRole !== "ADMIN") {
+        if (existingPet.ownerId !== userId && userRole !== "ADMIN" && userRole !== "MANAGER") {
             throw new HTTPException(404, { message: "Pet not found" });
         }
 

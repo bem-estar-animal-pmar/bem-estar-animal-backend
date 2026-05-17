@@ -5,7 +5,7 @@ import type { CreateMedicalRecordInput, UpdateMedicalRecordInput, ListMedicalRec
 export const medicalRecordService = {
     /* admin only */
     async create(userRole: string, data: CreateMedicalRecordInput) {
-        if (userRole !== "ADMIN") {
+        if (userRole !== "ADMIN" && userRole !== "MANAGER") {
             throw new HTTPException(401, { message: "Unauthorized" });
         }
 
@@ -65,7 +65,7 @@ export const medicalRecordService = {
     },
 
     async update(recordId: string, userRole: string, data: UpdateMedicalRecordInput) {
-        if (userRole !== "ADMIN") {
+        if (userRole !== "ADMIN" && userRole !== "MANAGER") {
             throw new HTTPException(401, { message: "Unauthorized" });
         }
 
@@ -90,7 +90,7 @@ export const medicalRecordService = {
 
 
     async list(userRole: string, filters: ListMedicalRecordsQueryInput) {
-        if (userRole !== "ADMIN") {
+        if (userRole !== "ADMIN" && userRole !== "MANAGER") {
             throw new HTTPException(401, { message: "Unauthorized" });
         }
 
@@ -110,7 +110,7 @@ export const medicalRecordService = {
 
     /* admin only: util for frontend */
     async getByAppointmentId(appointmentId: string, type: "NEUTERING" | "EMERGENCY", userRole: string) {
-        if (userRole !== "ADMIN") {
+        if (userRole !== "ADMIN" && userRole !== "MANAGER") {
             throw new HTTPException(401, { message: "Unauthorized" });
         }
 
@@ -125,8 +125,9 @@ export const medicalRecordService = {
     },
 
     async delete(recordId: string, userRole: string) {
-        if (userRole !== "ADMIN") throw new HTTPException(401, { message: "Unauthorized" });
-
+        if (userRole !== "ADMIN" && userRole !== "MANAGER") {
+            throw new HTTPException(401, { message: "Unauthorized" });
+        }
 
         const record = await prisma.medicalRecord.findUnique({ where: { id: recordId } });
         if (!record || record.deletedAt) throw new HTTPException(404, { message: "Medical record not found" });

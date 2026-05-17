@@ -1,12 +1,10 @@
 import { prisma } from "../src/lib/prisma"
 import { auth } from "../src/lib/auth.js";
-import { faker } from '@faker-js/faker/locale/pt_BR';
-
 const SEED_ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL!;
 const SEED_ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD!;
 
 const main = async () => {
-	console.log('🌱 Seeding database...');
+	console.log('[SEED] Seeding database...');
 
 	const existing = await prisma.user.findUnique({
         where: {
@@ -15,7 +13,7 @@ const main = async () => {
     });
 
     if (existing) {
-        console.log("Admin already exists");
+        console.log("[SEED] Admin already exists.");
         return;
     }
 
@@ -23,8 +21,8 @@ const main = async () => {
         body: {
             email: SEED_ADMIN_EMAIL,
             password: SEED_ADMIN_PASSWORD,
-            name: "Bem estar animal",
-            lastName: "Imaar",
+            name: "SISTEMA",
+            lastName: "Bem-Estar Animal",
             phone: "21999999999",
             cpf: "11144477735",
             cep: "20040002",
@@ -54,11 +52,11 @@ const main = async () => {
         }
     });
 
-    console.log("Admin created successfully");
+    console.log("[SEED] Admin created successfully.");
 
 	/* other seed for tests */
 
-	console.log('Seed completed. 🎉');
+	console.log('[SEED] Seed completed.');
 }
 
 main()

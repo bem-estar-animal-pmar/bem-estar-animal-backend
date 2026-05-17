@@ -1,7 +1,12 @@
 {
   "name": "bem-estar-animal-backend",
   "scripts": {
-    "dev": "bun run --hot src/index.ts"
+    "dev": "bun run --hot src/index.ts",
+    "build": "prisma generate",
+    "start": "prisma migrate deploy && prisma db seed && bun run src/index.ts"
+  },
+  "prisma": {
+    "seed": "bun run prisma/seed.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.6.0",
