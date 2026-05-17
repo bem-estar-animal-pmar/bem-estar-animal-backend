@@ -36,6 +36,14 @@ export const adminUpdateUserSchema = z.object({
         .max(16, "Number is expected to have less than 16 characters")
 });
 
+export const adminUpdateBlockSchema = z.object({
+    blockedUntil: z.coerce.date().nullable(),
+});
+
+export const adminUpdateRoleSchema = z.object({
+    role: z.enum(["USER", "MANAGER"])
+});
+
 export const listUsersQuerySchema = z.object({
     name: z.string().optional(),
     email: z.string().

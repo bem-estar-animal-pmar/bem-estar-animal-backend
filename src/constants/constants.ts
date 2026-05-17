@@ -69,3 +69,9 @@ export const ADOPTIONS_HISTORY_MAP: Record<string, string> = {
     REJECTED: "Recusado",
     RETURNED: "Devolvido",
 };
+
+export const ROLE_STATUS_MAP: Record<string, string> = {
+    USER: "Usuário",
+    ADMIN: "Administrador",
+    MANAGER: "Gerente"
+};

@@ -1,6 +1,21 @@
 import { AdminUpdateUserInput, ListUsersQueryInput } from "./users.schema";
 import { prisma } from "../../lib/prisma.js";
 import { HTTPException } from "hono/http-exception";
+import { ROLE_STATUS_MAP } from "../../constants/constants";
+
+const appendHistory = ( currentHistory: string | null,  message: string ) => {
+    const nowInBrazil = new Date().toLocaleString("pt-BR", {
+        timeZone: "America/Sao_Paulo",
+        dateStyle: "short",
+        timeStyle: "short"
+    });
+
+    const entry = `[${nowInBrazil}] ${message}`;
+
+    return currentHistory
+        ? `${currentHistory}\n${entry}`
+        : entry;
+};
 
 export const usersService = {
     async list(userRole: string, filters: ListUsersQueryInput) {
@@ -66,6 +81,22 @@ export const usersService = {
                 phone: true,
                 role: true,
                 createdAt: true,
+                cep: true,
+                cpf: true,
+                street: true,
+                number: true,
+                state: true,
+                neighborhood: true,
+                city: true,
+                blockedUntil: true,
+                deletedAt: true,
+                termsAcceptedAt: true,
+                privacyAcceptedAt: true,
+                termsVersion: true,
+                privacyVersion: true,
+                updatedAt: true,
+                emailVerified: true,
+                history: requesterRole !== "USER" ? true : false,
             }
         });
 
@@ -113,25 +144,160 @@ export const usersService = {
             }
         }
 
+        const changedFields: string[] = [];
+
+        if (data.name && data.name !== existingUser.name) {
+            changedFields.push(
+                `nome alterado de "${existingUser.name}" para "${data.name}"`
+            );
+        }
+
+        if (data.lastName && data.lastName !== existingUser.lastName) {
+            changedFields.push(
+                `sobrenome alterado de "${existingUser.lastName}" para "${data.lastName}"`
+            );
+        }
+
+        if (data.phone && data.phone !== existingUser.phone) {
+            changedFields.push(
+                `telefone alterado`
+            );
+        }
+
+        if (data.cpf && data.cpf !== existingUser.cpf) {
+            changedFields.push(
+                `CPF alterado`
+            );
+        }
+
+        if (data.cep && data.cep !== existingUser.cep) {
+            changedFields.push(
+                `CEP alterado de "${existingUser.cep}" para "${data.cep}"`
+            );
+        }
+
+        if (data.street && data.street !== existingUser.street) {
+            changedFields.push(
+                `rua alterada de "${existingUser.street}" para "${data.street}"`
+            );
+        }
+
+        if (data.neighborhood && data.neighborhood !== existingUser.neighborhood) {
+            changedFields.push(
+                `bairro alterado de "${existingUser.neighborhood}" para "${data.neighborhood}"`
+            );
+        }
+
+        if (data.city && data.city !== existingUser.city) {
+            changedFields.push(
+                `cidade alterada de "${existingUser.city}" para "${data.city}"`
+            );
+        }
+
+        if (data.state && data.state !== existingUser.state) {
+            changedFields.push(
+                `estado alterado de "${existingUser.state}" para "${data.state}"`
+            );
+        }
+
+        if (data.number && data.number !== existingUser.number) {
+            changedFields.push(
+                `número alterado de "${existingUser.number}" para "${data.number}"`
+            );
+        }
+        
+
+        const history =
+            changedFields.length > 0
+                ? appendHistory(
+                    existingUser.history,
+                    `${changedFields.join(", ")} pelo administrador do SISTEMA`
+                )
+                : existingUser.history;
+
         return await prisma.user.update({
             where: { id: targetUserId },
             data: {
-                ...data
+                ...data,
+                history: history
+            }
+        });
+    },
+
+    async updateBlockByAdmin( targetUserId: string, requesterRole: string, blockedUntil: Date | null) {
+        if (requesterRole !== "ADMIN") {
+            throw new HTTPException(401, { message: "Unauthorized" });
+        }
+
+        const existingUser = await prisma.user.findUnique({
+            where: { id: targetUserId }
+        });
+
+        if (!existingUser) {
+            throw new HTTPException(404, { message: "User not found" });
+        }
+
+        const history = appendHistory(
+            existingUser.history,
+            blockedUntil
+                ? `Usuário bloqueado até ${blockedUntil.toLocaleDateString("pt-BR")} pelo administrador do SISTEMA`
+                : `Bloqueio removido pelo administrador do SISTEMA`
+        );
+
+        return await prisma.user.update({
+            where: {
+                id: targetUserId
             },
-            select: {
-                id: true,
-                name: true,
-                lastName: true,
-                cpf: true,
-                phone: true,
-                cep: true,
-                street: true,
-                neighborhood: true,
-                city: true,
-                state: true,
-                number: true,
-                email: true,
-                role: true
+            data: {
+                blockedUntil,
+                history: history
+            }
+        });
+    },
+
+    async updateRoleByAdmin( targetUserId: string, requesterRole: string, newRole: "USER" | "MANAGER", requesterUserId: string ) {
+        if (requesterRole !== "ADMIN") {
+            throw new HTTPException(401, { message: "Unauthorized"});
+        }
+
+        const existingUser = await prisma.user.findUnique({
+            where: {
+                id: targetUserId
+            }
+        });
+
+        if (!existingUser) {
+            throw new HTTPException(404, { message: "User not found" });
+        }
+
+        if (targetUserId === requesterUserId) {
+            throw new HTTPException(400, {
+                message: "You cannot change your own role"
+            });
+        }
+
+        if (existingUser.role === "ADMIN") {
+            throw new HTTPException(403, {
+                message: "Cannot change admin role"
+            });
+        }
+
+        if (existingUser.role === newRole) {
+            throw new HTTPException(400, { message: "User already has this role" });
+        }
+
+        const history = appendHistory(
+            existingUser.history,
+            `Cargo alterado de "${ROLE_STATUS_MAP[existingUser.role]}" para "${ROLE_STATUS_MAP[newRole]}" pelo administrador do SISTEMA`
+        );
+
+        return await prisma.user.update({
+            where: {
+                id: targetUserId
+            },
+            data: {
+                role: newRole,
+                history: history
             }
         });
     }

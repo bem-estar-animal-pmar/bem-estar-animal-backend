@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { authMiddleware, type AuthEnv } from '../../middleware/authHandler';
 import { HTTPException } from 'hono/http-exception';
 import { usersService } from './users.service';
-import { adminUpdateUserSchema, listUsersQuerySchema } from './users.schema';
+import { adminUpdateUserSchema, listUsersQuerySchema, adminUpdateBlockSchema, adminUpdateRoleSchema } from './users.schema';
 
 const app = new Hono<AuthEnv>()
 
@@ -41,19 +41,14 @@ app.get('/details/:id', async (ctx) => {
     const targetUserId = ctx.req.param('id');
     const role = user.role ?? "USER";
 
-    const result = await usersService.getById(
-        targetUserId,
-        user.id,
-        role
-    );
-
+    const result = await usersService.getById( targetUserId, user.id, role);
     return ctx.json(result, 200);
 });
 
 /* @desc admin update user fields
-   @route PATCH https://example.com/api/admin/users/:id
+   @route PATCH https://example.com/api/admin/users/admin-update/:id
    @access private (ADMIN, MANAGER) */
-app.patch('/:id', async (ctx) => {
+app.patch('/admin-update/:id', async (ctx) => {
     const user = ctx.get("user")!;
 
     const body = await ctx.req.json();
@@ -76,6 +71,44 @@ app.patch('/:id', async (ctx) => {
         validation.data
     );
 
+    return ctx.json(updatedUser, 200);
+});
+
+/* @desc update user block status
+   @route PATCH /api/admin/users/:id/block-status
+   @access private (ADMIN) */
+app.patch('/block-status/:id', async (ctx) => {
+    const user = ctx.get("user")!;
+    const role = user.role ?? "USER";
+    const body = await ctx.req.json();
+
+    const validation = adminUpdateBlockSchema.safeParse(body);
+
+    if (!validation.success) {
+        throw new HTTPException(400, { message: "Validation Error. Invalid body" });
+    }
+
+    const targetUserId = ctx.req.param("id");
+    const updatedUser = await usersService.updateBlockByAdmin( targetUserId, role, validation.data.blockedUntil);
+    return ctx.json(updatedUser, 200);
+});
+
+/* @desc update user role
+   @route PATCH /api/admin/users/:id/role
+   @access private (ADMIN) */
+app.patch('/role/:id', async (ctx) => {
+    const user = ctx.get("user")!;
+    const requesterRole = user.role ?? "USER";
+
+    const body = await ctx.req.json();
+    const validation = adminUpdateRoleSchema.safeParse(body);
+
+    if (!validation.success) {
+        throw new HTTPException(400, { message: "Validation Error. Invalid body" });
+    }
+
+    const targetUserId = ctx.req.param("id");
+    const updatedUser = await usersService.updateRoleByAdmin( targetUserId, requesterRole, validation.data.role, user.id);
     return ctx.json(updatedUser, 200);
 });
 

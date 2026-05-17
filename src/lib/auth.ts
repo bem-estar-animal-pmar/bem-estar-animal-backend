@@ -180,6 +180,12 @@ export const auth = betterAuth({
                 input: true,
                 returned: false
             },
+            history: {
+                type: "string",
+                required: false,
+                input: false, /* Set automatically by DB or server, not frontend */
+                returned: false
+            },
             termsAcceptedAt: {
                 type: "date",
                 required: false,
@@ -230,6 +236,20 @@ export const auth = betterAuth({
                         message: validation.error.issues[0].message
                     });
                 }
+
+                /* since our cpf field is unique, we must check if there is already an user registered with it to
+                throw an error and send a response to the frontend, if you don't do that, a generic error will be sent
+                and the front will have no clue what is the problem */
+                const existingUser = await prisma.user.findUnique({
+                    where: { cpf: validation.data.cpf },
+                });
+
+                if (existingUser) {
+                    throw new APIError("BAD_REQUEST", {
+                        message: "This CPF already exists",
+                    });
+                }
+                
                 return {
                     context: {
                         ...ctx,

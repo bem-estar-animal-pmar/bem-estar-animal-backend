@@ -29,9 +29,11 @@ model User {
   sessions      Session[]
   accounts      Account[]
 
+  history       String    @db.VarChar(4000)   @default("")
+
   role          Role      @default(USER)
   lastName      String
-  cpf           String  
+  cpf           String    @unique
   phone         String
 
   cep           String
