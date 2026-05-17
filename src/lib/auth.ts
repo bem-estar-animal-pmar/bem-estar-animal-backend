@@ -258,6 +258,11 @@ export const auth = betterAuth({
             if (ctx.path === "/update-user") { /* this guarantees this middleware only runs when user tries to udpate their data */
                 const body = ctx.body;
                 const validation = userUpdateSchema.partial().safeParse(body);
+
+                throw new APIError("BAD_REQUEST", {
+                    message: "Unauthorized"
+                });
+                /*
                 if (!validation.success) {
                     throw new APIError("BAD_REQUEST", {
                         message: validation.error.issues[0].message
@@ -269,10 +274,10 @@ export const auth = betterAuth({
                         body: {
                             ...ctx.body,
                             ...validation.data,
-                            image: "", /* for now we won't allow users set image urls */
+                            image: "", // for now we won't allow users set image urls 
                         }
                     }
-                };
+                }; */
             }
         })
     },
