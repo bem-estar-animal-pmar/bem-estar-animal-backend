@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { authMiddleware, type AuthEnv } from '../../middleware/authHandler';
+import { termsMiddleware } from '../../middleware/termsHandler';
 import { HTTPException } from 'hono/http-exception';
 import { neuteringService } from "./neuterings.service";
 import { createNeuteringSchema, adminCreateNeuteringSchema, listNeuteringsQuerySchema, updateNeuteringStatusSchema, calendarQuerySchema, updateNeuteringLimitsSchema } from './neuterings.schema';
@@ -7,6 +8,7 @@ import { createNeuteringSchema, adminCreateNeuteringSchema, listNeuteringsQueryS
 const app = new Hono<AuthEnv>();
 
 app.use('*', authMiddleware);
+app.use('*', termsMiddleware);
 
 /* @desc list current user's neutering appointments
    @route GET /api/neuterings/me

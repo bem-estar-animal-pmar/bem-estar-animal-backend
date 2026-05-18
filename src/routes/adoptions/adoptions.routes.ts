@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { authMiddleware, type AuthEnv } from '../../middleware/authHandler';
+import { termsMiddleware } from '../../middleware/termsHandler';
 import { HTTPException } from 'hono/http-exception';
 import { adoptionsService } from "./adoptions.service";
 import { createGiveUpSchema, updateGiveUpStatusSchema, createAdoptionSchema, updateAdoptionStatusSchema, listGiveUpRequestsQuerySchema, listAdoptionRequestsQuerySchema} from './adoptions.schema';
@@ -26,6 +27,7 @@ app.post('/request', async (ctx) => {
 /* private routes */
 
 app.use('*', authMiddleware);
+app.use('*', termsMiddleware);
 
 /* --------------- GIVE UP RELATED ROUTES  --------------- */
 

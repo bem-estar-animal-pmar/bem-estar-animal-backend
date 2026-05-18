@@ -190,27 +190,27 @@ export const auth = betterAuth({
                 type: "date",
                 required: false,
                 input: false, /* Set automatically by DB or server, not frontend */
-                returned: false
+                returned: true
             },
             termsVersion: { 
                 type: "string", 
                 required: false, 
                 input: true, /* input must be true because we inject this field on the before hook, even being true, our 
                     zod schema prevents user from sending it from the client */ 
-                returned: false 
+                returned: true 
             },
             privacyAcceptedAt: {
                 type: "date",
                 required: false,
                 input: false, /* Set automatically by DB or server, not frontend */
-                returned: false
+                returned: true
             },
             privacyVersion: { 
                 type: "string", 
                 required: false, 
                 input: true, /* input must be true because we inject this field on the before hook, even being true, our 
                     zod schema prevents user from sending it from the client */ 
-                returned: false 
+                returned: true 
             },
             blockedUntil: {
                 type: "date",
@@ -249,7 +249,7 @@ export const auth = betterAuth({
                         message: "This CPF already exists",
                     });
                 }
-                
+
                 return {
                     context: {
                         ...ctx,

@@ -1,7 +1,7 @@
 import { AdminUpdateUserInput, ListUsersQueryInput } from "./users.schema";
 import { prisma } from "../../lib/prisma.js";
 import { HTTPException } from "hono/http-exception";
-import { ROLE_STATUS_MAP } from "../../constants/constants";
+import { CURRENT_PRIVACY_POLICY_VERSION, CURRENT_TERMS_OF_SERVICE_VERSION, ROLE_STATUS_MAP } from "../../constants/constants";
 
 const appendHistory = ( currentHistory: string | null,  message: string ) => {
     const nowInBrazil = new Date().toLocaleString("pt-BR", {
@@ -300,5 +300,53 @@ export const usersService = {
                 history: history
             }
         });
-    }
+    },
+
+
+    /* user routes only for terms (LGPD) */
+
+    async reacceptTerms(userId: string) {
+        const now = new Date();
+
+        return await prisma.user.update({
+            where: {
+                id: userId
+            },
+            data: {
+                termsAcceptedAt: now,
+                privacyAcceptedAt: now,
+                termsVersion: CURRENT_TERMS_OF_SERVICE_VERSION,
+                privacyVersion: CURRENT_PRIVACY_POLICY_VERSION
+            }
+        });
+    },
+
+    async revokeTerms(userId: string) {
+        const existingUser = await prisma.user.findUnique({
+            where: {
+                id: userId
+            }
+        });
+
+        if (!existingUser) {
+            throw new HTTPException(404, { message: "User not found" });
+        }
+
+        return await prisma.$transaction([
+            prisma.user.update({
+                where: {
+                    id: userId
+                },
+                data: {
+                    termsAcceptedAt: null,
+                    privacyAcceptedAt: null,
+                }
+            }),
+            prisma.session.deleteMany({
+                where: {
+                    userId
+                }
+            })
+        ]);
+    },
 }

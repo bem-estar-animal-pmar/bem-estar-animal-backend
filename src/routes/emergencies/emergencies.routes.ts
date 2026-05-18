@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { authMiddleware, type AuthEnv } from '../../middleware/authHandler';
+import { termsMiddleware } from '../../middleware/termsHandler';
 import { HTTPException } from 'hono/http-exception';
 import { emergencyService } from "./emergencies.service";
 import { createEmergencySchema, adminCreateEmergencySchema, listEmergenciesQuerySchema, updateEmergencyStatusSchema } from './emergencies.schema';
@@ -7,6 +8,7 @@ import { createEmergencySchema, adminCreateEmergencySchema, listEmergenciesQuery
 const app = new Hono<AuthEnv>();
 
 app.use('*', authMiddleware);
+app.use('*', termsMiddleware);
 
 /* @desc create a new emergency appointment request
    @route POST /api/emergencies

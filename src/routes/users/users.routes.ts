@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { authMiddleware, type AuthEnv } from '../../middleware/authHandler';
+import { termsMiddleware } from '../../middleware/termsHandler';
 import { HTTPException } from 'hono/http-exception';
 import { usersService } from './users.service';
 import { adminUpdateUserSchema, listUsersQuerySchema, adminUpdateBlockSchema, adminUpdateRoleSchema } from './users.schema';
@@ -9,6 +10,36 @@ const app = new Hono<AuthEnv>()
 /* private routes */
 
 app.use('*', authMiddleware);
+
+/* @desc reaccept terms
+   @route POST /api/admin/users/reaccept-terms
+   @access private */
+app.post("/reaccept-terms", async (ctx) => {
+    const user = ctx.get("user")!;
+
+    await usersService.reacceptTerms(user.id);
+
+    return ctx.json({
+        message: "Terms accepted successfully"
+    });
+});
+
+/* @desc revoke LGPD consent
+   @route POST /api/admin/users/revoke-terms
+   @access private */
+app.post("/revoke-terms", async (ctx) => {
+    const user = ctx.get("user")!;
+
+    await usersService.revokeTerms(user.id);
+
+    return ctx.json({
+        message: "Terms revoked successfully"
+    });
+});
+
+/* ---!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! user auto-delete route should be here --- */
+
+app.use('*', termsMiddleware);
 
 /* @desc list all user with filters and pagination
    @route GET https://example.com/api/admin/users/?role=USER&page=1&limit=20

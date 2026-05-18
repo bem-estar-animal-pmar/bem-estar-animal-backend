@@ -43,10 +43,10 @@ model User {
   state         String
   number        String
 
-  termsAcceptedAt     DateTime  @default(now())
+  termsAcceptedAt     DateTime?  @default(now())
   termsVersion        String    // "v1.0.0"
   
-  privacyAcceptedAt     DateTime  @default(now())
+  privacyAcceptedAt     DateTime?  @default(now())
   privacyVersion        String    // "v1.0.0"
 
   blockedUntil     DateTime? /* in case user does not show for appointment */

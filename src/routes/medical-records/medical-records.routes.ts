@@ -1,14 +1,15 @@
 import { Hono } from 'hono';
 import { authMiddleware, type AuthEnv } from '../../middleware/authHandler';
+import { termsMiddleware } from '../../middleware/termsHandler';
 import { HTTPException } from 'hono/http-exception';
 import { medicalRecordService } from "./medical-records.service";
 import { createMedicalRecordSchema, updateMedicalRecordSchema, listMedicalRecordsQuerySchema, idParamSchema } from './medical-records.schema';
-import { record } from 'zod';
 
 const app = new Hono<AuthEnv>();
 
 // Nenhuma rota pública ou de usuário comum. Tudo requer Auth e Role ADMIN.
 app.use('*', authMiddleware);
+app.use('*', termsMiddleware);
 
 /* @desc create a new medical record for an appointment
    @route POST /api/medical-records

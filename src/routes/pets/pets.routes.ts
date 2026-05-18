@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { authMiddleware, type AuthEnv } from '../../middleware/authHandler';
+import { termsMiddleware } from '../../middleware/termsHandler';
 import { HTTPException } from 'hono/http-exception';
 import { petsService } from "./pets.service";
 import { createPetSchema, adminCreatePetSchema, listPetsQuerySchema, adminUpdatePetSchema, listPetsForAdoptionQuerySchema } from './pets.schema';
@@ -32,6 +33,7 @@ app.get('/adoption', async (ctx) => {
 /* private routes */
 
 app.use('*', authMiddleware);
+app.use('*', termsMiddleware);
 
 /* @desc list the current user's pet@route GET https://example.com/api/pets/me?name=Rex&species=DOG&breed=pitbulls with filtering
    
