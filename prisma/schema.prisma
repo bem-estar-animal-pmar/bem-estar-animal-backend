@@ -50,6 +50,7 @@ model User {
   privacyVersion        String    // "v1.0.0"
 
   blockedUntil     DateTime? /* in case user does not show for appointment */
+  suspendedAt       DateTime? /* in case user fraud */
   deletedAt       DateTime? /* when user request account deletion */
 
   /* relations */

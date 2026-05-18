@@ -143,4 +143,17 @@ app.patch('/role/:id', async (ctx) => {
     return ctx.json(updatedUser, 200);
 });
 
+/* @desc admin permanently suspends a fraudulent account and releases CPF
+   @route POST /api/admin/users/suspend-fraud/:id
+   @access private (ADMIN) */
+app.post("/suspend-fraud/:id", async (ctx) => {
+    const user = ctx.get("user")!;
+    const requesterRole = user.role ?? "USER";
+    const targetUserId = ctx.req.param("id");
+
+    await usersService.suspendFraudulentAccount(targetUserId, requesterRole);
+
+    return ctx.json({ message: "Account suspended permanently and CPF released."});
+});
+
 export default app;

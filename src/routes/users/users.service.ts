@@ -94,6 +94,7 @@ export const usersService = {
                 privacyAcceptedAt: true,
                 termsVersion: true,
                 privacyVersion: true,
+                suspendedAt: true,
                 updatedAt: true,
                 emailVerified: true,
                 history: requesterRole !== "USER" ? true : false,
@@ -348,5 +349,201 @@ export const usersService = {
                 }
             })
         ]);
+    },
+
+    async suspendFraudulentAccount(targetUserId: string, requesterRole: string) {
+        if (requesterRole !== "ADMIN") {
+            throw new HTTPException(401, { message: "Unauthorized" });
+        }
+
+        const existingUser = await prisma.user.findUnique({
+            where: { id: targetUserId }
+        });
+
+        if (!existingUser) {
+            throw new HTTPException(404, { message: "User not found" });
+        }
+
+        if (existingUser.suspendedAt) {
+            throw new HTTPException(409, { message: "User already suspended" });
+        }
+
+        const now = new Date();
+        const releasedCpf = `FRAUD_RELEASED_${now.getTime()}`;
+
+        const history = appendHistory(
+            existingUser.history,
+            `Conta SUSPENSA PERMANENTEMENTE pelo administrador do SISTEMA por FRAUDE. CPF original (${existingUser.cpf}) liberado.`
+        );
+
+        /*
+        return await prisma.$transaction([
+            // 1. Update the user: Flag as suspended, release CPF, scramble personal info to protect victim
+            prisma.user.update({
+                where: { id: targetUserId },
+                data: {
+                    suspendedAt: now,
+                    cpf: releasedCpf, // free real victim cpf
+                    // keep the email intact so the fraudster hits the @@unique constraint if they try again
+                    name: "Conta",
+                    lastName: "Suspensa",
+                    phone: "00000000000",
+                    cep: "00000000",
+                    street: "Removido",
+                    neighborhood: "Removido",
+                    city: "Removido",
+                    state: "XX",
+                    number: "00",
+                    history: history
+                }
+            }),
+
+            prisma.session.deleteMany({ where: { userId: targetUserId } }),
+            prisma.account.deleteMany({ where: { userId: targetUserId } }),
+            prisma.verification.deleteMany({ where: { identifier: existingUser.email } })
+        ]); */
+
+        return await prisma.$transaction(async (tx) => {
+            await tx.user.update({
+                where: { id: targetUserId },
+                data: {
+                    suspendedAt: now,
+                    cpf: releasedCpf, /* free real victim cpf */
+                    /* keep the email intact so the fraudster hits the @@unique constraint if they try again */
+                    name: "Conta",
+                    lastName: "Suspensa",
+                    phone: "00000000000",
+                    cep: "00000000",
+                    street: "Removido",
+                    neighborhood: "Removido",
+                    city: "Removido",
+                    state: "XX",
+                    number: "00",
+                    history: history
+                }
+            }),
+            
+            await tx.session.deleteMany({ where: { userId: targetUserId } }),
+            await tx.account.deleteMany({ where: { userId: targetUserId } }),
+            await tx.verification.deleteMany({ where: { identifier: existingUser.email } })
+
+            const nowInBrazilShort = new Date().toLocaleString("pt-BR", {
+                timeZone: "America/Sao_Paulo",
+                dateStyle: "short",
+                timeStyle: "short"
+            });
+
+            const logEntry = `[${nowInBrazilShort}] Status alterado para "Cancelado" automaticamente pelo administrador do SISTEMA. (Conta Suspensa)`;
+
+            const activeNeuterings = await tx.neuteringAppointment.findMany({
+                where: {
+                    userId: targetUserId,
+                    status: { in: ["PENDING", "AWAITING_EXAMS", "CONFIRMED"] }
+                },
+                include: { medicalRecord: true }
+            });
+
+            for (const appointment of activeNeuterings) {
+                let medicalRecordUpdate = undefined;
+                if (appointment.medicalRecord) {
+                    medicalRecordUpdate = {
+                        update: {
+                            history: appointment.medicalRecord.history
+                                ? `${appointment.medicalRecord.history}\n${logEntry}`
+                                : logEntry
+                        }
+                    };
+                }
+                await tx.neuteringAppointment.update({
+                    where: { id: appointment.id },
+                    data: {
+                        status: "CANCELLED",
+                        medicalRecord: medicalRecordUpdate
+                    }
+                });
+            }
+
+            const activeEmergencies = await tx.emergencyAppointment.findMany({
+                where: {
+                    userId: targetUserId,
+                    status: { in: ["PENDING", "CONFIRMED"] }
+                },
+                include: { medicalRecord: true }
+            });
+
+            for (const emergency of activeEmergencies) {
+                let medicalRecordUpdate = undefined;
+                if (emergency.medicalRecord) {
+                    medicalRecordUpdate = {
+                        update: {
+                            history: emergency.medicalRecord.history
+                                ? `${emergency.medicalRecord.history}\n${logEntry}`
+                                : logEntry
+                        }
+                    };
+                }
+                await tx.emergencyAppointment.update({
+                    where: { id: emergency.id },
+                    data: {
+                        status: "CANCELLED",
+                        medicalRecord: medicalRecordUpdate
+                    }
+                });
+            }
+
+            const activeGiveUps = await tx.giveUpRequest.findMany({
+                where: {
+                    userId: targetUserId,
+                    status: "PENDING"
+                }
+            });
+
+            for (const giveUp of activeGiveUps) {
+                await tx.giveUpRequest.update({
+                    where: { id: giveUp.id },
+                    data: {
+                        status: "REJECTED", 
+                        history: giveUp.history 
+                            ? `${giveUp.history}\n${logEntry}`
+                            : logEntry
+                    }
+                });
+            }
+
+            const userPets = await tx.pet.findMany({
+                where: { ownerId: targetUserId },
+                select: { id: true }
+            });
+            const userPetIds = userPets.map(pet => pet.id);
+
+            if (userPetIds.length > 0) {
+                const activeAdoptions = await tx.adoptionRequest.findMany({
+                    where: {
+                        petId: { in: userPetIds },
+                        status: "PENDING"
+                    }
+                });
+
+                for (const adoption of activeAdoptions) {
+                    await tx.adoptionRequest.update({
+                        where: { id: adoption.id },
+                        data: {
+                            status: "REJECTED",
+                            history: adoption.history
+                                ? `${adoption.history}\n${logEntry}`
+                                : logEntry
+                        }
+                    });
+                }
+                
+                await tx.pet.updateMany({
+                    where: { 
+                        id: { in: userPetIds },
+                        adoptionStatus: "FOR_ADOPTION" 
+                    },
+                    data: { adoptionStatus: "NONE" }
+                });
+            }
+        });
     },
 }
