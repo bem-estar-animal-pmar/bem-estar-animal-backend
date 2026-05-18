@@ -105,7 +105,7 @@ export const usersService = {
             throw new HTTPException(404, { message: "User not found" });
         }
 
-        const isAdmin = requesterRole === "ADMIN";
+        const isAdmin = requesterRole === "ADMIN" || requesterRole === "MANAGER";
         const isOwner = requesterUserId === targetUserId;
 
         if (!isAdmin && !isOwner) {
