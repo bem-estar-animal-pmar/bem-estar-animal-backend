@@ -22,7 +22,7 @@ export const authMiddleware = createMiddleware<AuthEnv>(async (ctx, next) => {
     if (!session) {
         ctx.set("user", null);
         ctx.set("session", null);
-        throw new HTTPException(401, { message: 'Invalid or expired Session' })
+        throw new HTTPException(401, { message: 'Invalid or expired session' })
     }
 
     ctx.set("user", session.user);

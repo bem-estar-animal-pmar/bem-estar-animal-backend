@@ -26,11 +26,11 @@ export const adoptionsService = {
         }
 
         if (pet.ownerId !== userId) {
-            throw new HTTPException(403, { message: "You can only give up your own pet" });
+            throw new HTTPException(404, { message: "Pet not found" });
         }
 
         if (pet.adoptionStatus === "FOR_ADOPTION" || pet.adoptionStatus === "ADOPTED") {
-            throw new HTTPException(400, { message: "Pet is already for adoption or adopted" });
+            throw new HTTPException(400, { message: "Pet is already marked for adoption or adopted" });
         }
 
         /* checks if there is already a give up request for the pet */
@@ -39,7 +39,7 @@ export const adoptionsService = {
         });
 
         if (existingRequest) {
-            throw new HTTPException(400, { message: "There is already an active or pending request for this pet" });
+            throw new HTTPException(400, { message: "There is already a pending request for this pet" });
         }
 
         const initialHistory = `Pedido criado com status "${ADOPTIONS_HISTORY_MAP["PENDING"]}" pelo responsável.`;
@@ -65,11 +65,11 @@ export const adoptionsService = {
         }
 
         if (request.userId !== userId) {
-            throw new HTTPException(403, { message: "You can only cancel your own requests" });
+            throw new HTTPException(403, { message: "You do not have permission to perform this action" });
         }
 
         if (request.status !== "PENDING") {
-            throw new HTTPException(400, { message: `Cannot cancel an already accepted, cancelled or rejected give up request` });
+            throw new HTTPException(400, { message: "Only pending give up requests can be cancelled" });
         }
 
         return await prisma.giveUpRequest.delete({
@@ -95,8 +95,8 @@ export const adoptionsService = {
 
     /* admin only */
     async listGiveUps(userRole: string, filters: ListGiveUpRequestsQueryInput) {
-        if (userRole !== "ADMIN" && userRole != "MANAGER") {
-            throw new HTTPException(401, { message: "Unauthorized" });
+        if (userRole !== "ADMIN" && userRole !== "MANAGER") {
+            throw new HTTPException(403, { message: "You do not have permission to perform this action" });
         }
         
         const limit = filters.limit;
@@ -176,7 +176,7 @@ export const adoptionsService = {
         }
 
         if ( userRole !== "ADMIN" && userRole !== "MANAGER" && existingRequest.pet.ownerId !== userId ) {
-            throw new HTTPException(401, { message: "Unauthorized" });
+            throw new HTTPException(404, { message: "Give up request not found" });
         }
 
         return existingRequest;
@@ -185,7 +185,7 @@ export const adoptionsService = {
     /* admin only */
     async updateGiveUpStatus(requestId: string, userRole: string, userName: string, data: UpdateGiveUpStatusInput) {
         if (userRole !== "ADMIN" && userRole !== "MANAGER") {
-            throw new HTTPException(401, { message: "Unauthorized" });
+            throw new HTTPException(403, { message: "You do not have permission to perform this action" });
         }
 
         const request = await prisma.giveUpRequest.findUnique({ 
@@ -257,7 +257,7 @@ export const adoptionsService = {
     /* admin only, here they can accept (set pet as adoption), cancel or reject */
     async updateAdoptionStatus(requestId: string, userRole: string, userName: string, data: UpdateAdoptionStatusInput) {
         if (userRole !== "ADMIN" && userRole !== "MANAGER") {
-            throw new HTTPException(401, { message: "Unauthorized" });
+            throw new HTTPException(403, { message: "You do not have permission to perform this action" });
         }
 
         const request = await prisma.adoptionRequest.findUnique({ 
@@ -265,7 +265,7 @@ export const adoptionsService = {
         });
 
         if (!request) {
-            throw new HTTPException(404, { message: "Adoption Request not found" });
+            throw new HTTPException(404, { message: "Adoption request not found" });
         }
 
         if (request.status !== "PENDING" && data.status !== "RETURNED") {
@@ -301,7 +301,7 @@ export const adoptionsService = {
             
             if (activeEmergency || activeNeutering) {
                 throw new HTTPException(400, {
-                    message: "You cannot approve a adoption request for a pet that has an active neutering or emergency. Please resolve them first."
+                    message: "You cannot approve an adoption request for a pet that has an active neutering or emergency. Please resolve them first."
                 });
             }
 
@@ -411,7 +411,7 @@ export const adoptionsService = {
     /* admin only list adoption requests */
     async listAdoptions(userRole: string, filters: ListAdoptionRequestsQueryInput) {
         if (userRole !== "ADMIN" && userRole !== "MANAGER") {
-            throw new HTTPException(401, { message: "Unauthorized" });
+            throw new HTTPException(403, { message: "You do not have permission to perform this action" });
         }
         
         const limit = filters.limit;
@@ -451,13 +451,13 @@ export const adoptionsService = {
     },
 
     /* only admins can see adoption request sent by the public */
-    async getAdoptionById(neuteringId: string, userRole: string) {
+    async getAdoptionById(requestId: string, userRole: string) {
         if (userRole !== "ADMIN" && userRole !== "MANAGER") {
-            throw new HTTPException(401, { message: "Unauthorized" });
+            throw new HTTPException(403, { message: "You do not have permission to perform this action" });
         }
 
         const existingRequest = await prisma.adoptionRequest.findUnique({
-            where: { id: neuteringId },
+            where: { id: requestId },
             include: {
                 pet: {
                     select: {

@@ -51,11 +51,11 @@ export const petsService = {
         }
 
         if (userRole !== "ADMIN" && userRole !== "MANAGER" && existingPet.ownerId !== userId) {
-            throw new HTTPException(401, { message: "Unauthorized" });
+            throw new HTTPException(403, { message:  "You do not have permission to perform this action" });
         }
 
         if (existingPet.adoptionStatus !== "FOR_ADOPTION") {
-            throw new HTTPException(401, { message: "Cannot cancel give up beucase pet is adopted or already not for adoption" });
+            throw new HTTPException(400, { message: "Pet is adopted or already not for adoption" });
         }
 
         const nowInBrazil = new Date().toLocaleString("pt-BR", {
@@ -113,7 +113,7 @@ export const petsService = {
     /* admin only: undo a pet adoption */
     async returnPet(petId: string, userName: string, userRole: string) {
         if (userRole !== "ADMIN" && userRole !== "MANAGER") {
-            throw new HTTPException(401, { message: "Unauthorized" });
+            throw new HTTPException(403, { message: "You do not have permission to perform this action" });
         }
 
         const existingPet = await prisma.pet.findUnique({
@@ -125,7 +125,7 @@ export const petsService = {
         }
 
         if (existingPet.adoptionStatus !== "ADOPTED") {
-            throw new HTTPException(401, { message: "Pet is not adopted" });
+            throw new HTTPException(400, { message: "Pet is not adopted" });
         }
 
         const latestAdoption = await prisma.adoptionRequest.findFirst({
@@ -249,7 +249,7 @@ export const petsService = {
     /* admins are allowed to create pets for other users */
     async createByAdmin(targetUserId: string, userRole: string, data: AdminCreatePetInput) {
         if (userRole !== "ADMIN" && userRole !== "MANAGER") {
-            throw new HTTPException(401, { message: "Unauthorized" });
+            throw new HTTPException(403, { message: "You do not have permission to perform this action" });
         }
         const userExists = await prisma.user.findUnique({
             where: {
@@ -257,7 +257,7 @@ export const petsService = {
             }
         })
         if (!userExists) {
-            throw new HTTPException(401, { message: "User not found" });
+            throw new HTTPException(404, { message: "User not found" });
         }
         return await prisma.pet.create({
             data: {
@@ -271,7 +271,7 @@ export const petsService = {
     to adopt the pet */
     async CreateAfterEmergencyByAdmin(targetUserId: string, userRole: string, data: AdminCreatePetInput) {
         if (userRole !== "ADMIN" && userRole !== "MANAGER") {
-            throw new HTTPException(401, { message: "Unauthorized" });
+            throw new HTTPException(403, { message: "You do not have permission to perform this action" });
         }
         const userExists = await prisma.user.findUnique({
             where: {
@@ -279,7 +279,7 @@ export const petsService = {
             }
         })
         if (!userExists) {
-            throw new HTTPException(401, { message: "User not found" });
+            throw new HTTPException(404, { message: "User not found" });
         }
 
         const nowInBrazilShort = new Date().toLocaleString("pt-BR", {
@@ -333,7 +333,7 @@ export const petsService = {
 
     async updateByAdmin(petId: string, userId: string, userRole: string, data: AdminUpdatePetInput) {
         if (userRole !== "ADMIN" && userRole !== "MANAGER") {
-            throw new HTTPException(401, { message: "Unauthorized" });
+            throw new HTTPException(403, { message: "You do not have permission to perform this action" });
         }
         const existingPet = await prisma.pet.findUnique({
             where: { id: petId }
@@ -352,7 +352,7 @@ export const petsService = {
     /* admin only */
     async listAll(userRole: string, filters: ListPetsParamsInput) {
         if (userRole !== "ADMIN" && userRole !== "MANAGER") {
-            throw new HTTPException(401, { message: "Unauthorized" });
+            throw new HTTPException(403, { message: "You do not have permission to perform this action" });
         }
 
         const limit = filters.limit;
@@ -405,7 +405,7 @@ export const petsService = {
     /* admin only */
     async delete(petId: string, userRole: string) {
         if (userRole !== "ADMIN" && userRole !== "MANAGER") {
-            throw new HTTPException(401, { message: "Unauthorized" });
+            throw new HTTPException(403, { message: "You do not have permission to perform this action" });
         }
 
         const existingPet = await prisma.pet.findUnique({

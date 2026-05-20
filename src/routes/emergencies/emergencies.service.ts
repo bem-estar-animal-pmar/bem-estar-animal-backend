@@ -19,7 +19,7 @@ export const emergencyService = {
         });
 
         if (!user) {
-            throw new HTTPException(404, { message: "User not found" });
+            throw new HTTPException(401, { message: "Authentication required" });
         }
 
         if (user.blockedUntil && user.blockedUntil > new Date()) {
@@ -35,14 +35,14 @@ export const emergencyService = {
             if (!petExists) {
                 throw new HTTPException(404, { message: "Result Pet ID does not exist" });
             }
-            if (petExists.ownerId != userId) {
-                throw new HTTPException(401, { message: "You are not allowed to create an emergency appointment for this pet" });
+            if (petExists.ownerId !== userId) {
+                throw new HTTPException(404, { message: "Pet not found" });
             }
             if (petExists.adoptionStatus === "ADOPTED") {
-                throw new HTTPException(400, { message: "This pet is adopted, which means you cannot schedule neuterings anymore. Pet data is for read only now." });
+                throw new HTTPException(400, { message: "This pet is adopted and can no longer request emergency appointments" });
             }
             if (petExists.allowEmergency === false) {
-                throw new HTTPException(401, { message: "This pet is not allowed to emergency request." });
+                throw new HTTPException(403, { message: "Emergency appointments are disabled for this pet" });
             }
             
             /* pets with active emergency appointments cannot create another request */
@@ -155,7 +155,7 @@ export const emergencyService = {
 
         // owner authorization
         if (userRole !== "ADMIN" && userRole !== "MANAGER" && existingEmergency.user.id !== userId) {
-            throw new HTTPException(401, { message: "Unauthorized" });
+            throw new HTTPException(403, { message: "You do not have permission to perform this action" });
         }
 
         return {
@@ -184,7 +184,7 @@ export const emergencyService = {
             where: { id: userId }
         })
         if (!user) {
-            throw new HTTPException(401, { message: "Unauthorized" });
+            throw new HTTPException(401, { message: "Authentication required" });
         }
 
         const appointment = await prisma.emergencyAppointment.findUnique({
@@ -197,7 +197,7 @@ export const emergencyService = {
         }
 
         if (appointment.userId !== userId && user.role !== "ADMIN" && user.role !== "MANAGER") {
-            throw new HTTPException(403, { message: "You can only cancel your own appointments" });
+            throw new HTTPException(404, { message: "Appointment not found" });
         }
 
         if (appointment.status === "COMPLETED" || appointment.status === "CANCELLED" || appointment.status === "NO_SHOW") {
@@ -254,7 +254,7 @@ export const emergencyService = {
         }
 
         if (user.role !== "ADMIN" && user.role !== "MANAGER") {
-            throw new HTTPException(401, { message: "Unauthorized" });
+            throw new HTTPException(403, { message: "You do not have permission to perform this action" });
         }
 
         let {name, species, gender, size} = {...data}
@@ -266,8 +266,8 @@ export const emergencyService = {
             if (!petExists) {
                 throw new HTTPException(404, { message: "Result Pet ID does not exist" });
             }
-            if (petExists.ownerId != userId) {
-                throw new HTTPException(401, { message: "You can only register appointments for clinic pets created by your account" });
+            if (petExists.ownerId !== userId) {
+                throw new HTTPException(403, { message: "You can only register appointments for clinic pets created by your account" });
             }
             
             /* pets with active emergency appointments cannot create another request */
@@ -315,7 +315,7 @@ export const emergencyService = {
 
     async list(userRole: string, filters: ListEmergenciesQueryInput) {
         if (userRole !== "ADMIN" && userRole !== "MANAGER") {
-            throw new HTTPException(401, { message: "Unauthorized" });
+            throw new HTTPException(403, { message: "You do not have permission to perform this action" });
         }
 
         const limit = filters.limit;
@@ -362,10 +362,10 @@ export const emergencyService = {
             where: {id: userId}
         })
         if (!user) {
-            throw new HTTPException(401, { message: "Unauthorized" });
+            throw new HTTPException(403, { message: "You do not have permission to perform this action" });
         }
         if (user.role !== "ADMIN" && user.role !== "MANAGER") {
-            throw new HTTPException(401, { message: "Unauthorized" });
+            throw new HTTPException(403, { message: "You do not have permission to perform this action" });
         }
 
         const appointment = await prisma.emergencyAppointment.findUnique({
@@ -384,7 +384,7 @@ export const emergencyService = {
                 where: { id: data.petId }
             });
             if (!petExists) {
-                throw new HTTPException(404, { message: "Result Pet ID does not exist" });
+                throw new HTTPException(404, { message: "Pet not found" });
             }
         }
 
@@ -471,7 +471,7 @@ export const emergencyService = {
 
         /* rule: you cannot confirm  appointments without date */
         if ((data.status === "CONFIRMED") && !data.scheduleDate && !appointment.scheduleDate) {
-            throw new HTTPException(403, { message: "To confirm an emergency appointment you must set a date." });
+            throw new HTTPException(400, { message: "To confirm an emergency appointment you must set a date." });
         }
 
         return await prisma.emergencyAppointment.update({

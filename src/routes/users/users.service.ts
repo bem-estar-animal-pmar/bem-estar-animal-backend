@@ -7,7 +7,7 @@ import { appendHistory } from "../../lib/history";
 export const usersService = {
     async list(userRole: string, filters: ListUsersQueryInput) {
         if (userRole !== "ADMIN" && userRole !== "MANAGER") {
-            throw new HTTPException(401, { message: "Unauthorized" });
+            throw new HTTPException(403, { message: "You do not have permission to perform this action" });
         }
 
         const limit = filters.limit;
@@ -104,7 +104,7 @@ export const usersService = {
 
     async updateByAdmin( targetUserId: string, requesterRole: string, data: AdminUpdateUserInput ) {
         if (requesterRole !== "ADMIN") {
-            throw new HTTPException(401, { message: "Unauthorized" });
+            throw new HTTPException(403, { message: "You do not have permission to perform this action" });
         }
 
         const existingUser = await prisma.user.findUnique({
@@ -214,7 +214,7 @@ export const usersService = {
 
     async updateBlockByAdmin( targetUserId: string, requesterRole: string, blockedUntil: Date | null) {
         if (requesterRole !== "ADMIN") {
-            throw new HTTPException(401, { message: "Unauthorized" });
+            throw new HTTPException(403, { message: "You do not have permission to perform this action" });
         }
 
         const existingUser = await prisma.user.findUnique({
@@ -245,7 +245,7 @@ export const usersService = {
 
     async updateRoleByAdmin( targetUserId: string, requesterRole: string, newRole: "USER" | "MANAGER", requesterUserId: string ) {
         if (requesterRole !== "ADMIN") {
-            throw new HTTPException(401, { message: "Unauthorized"});
+            throw new HTTPException(403, { message: "You do not have permission to perform this action" });
         }
 
         const existingUser = await prisma.user.findUnique({
@@ -339,7 +339,7 @@ export const usersService = {
 
     async suspendFraudulentAccount(targetUserId: string, requesterRole: string) {
         if (requesterRole !== "ADMIN") {
-            throw new HTTPException(401, { message: "Unauthorized" });
+            throw new HTTPException(403, { message: "You do not have permission to perform this action" });
         }
 
         const existingUser = await prisma.user.findUnique({
@@ -380,11 +380,11 @@ export const usersService = {
                     number: "00",
                     history: history
                 }
-            }),
+            });
             
-            await tx.session.deleteMany({ where: { userId: targetUserId } }),
-            await tx.account.deleteMany({ where: { userId: targetUserId } }),
-            await tx.verification.deleteMany({ where: { identifier: existingUser.email } })
+            await tx.session.deleteMany({ where: { userId: targetUserId } });
+            await tx.account.deleteMany({ where: { userId: targetUserId } });
+            await tx.verification.deleteMany({ where: { identifier: existingUser.email } });
             
             const logEntry = `Status alterado para "Cancelado" automaticamente pelo administrador do SISTEMA. (Conta Suspensa)`;
 

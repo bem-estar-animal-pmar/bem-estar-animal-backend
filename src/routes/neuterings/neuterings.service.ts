@@ -40,7 +40,7 @@ export const neuteringService = {
         }
 
         if (pet.ownerId !== userId) {
-            throw new HTTPException(403, { message: "You can only schedule appointments for your own pet" });
+            throw new HTTPException(404, { message: "Pet not found" });
         }
 
         if (pet.adoptionStatus === "ADOPTED") {
@@ -267,7 +267,7 @@ export const neuteringService = {
 
         // owner authorization
         if ( userRole !== "ADMIN" && userRole !== "MANAGER" && existingNeutering.pet.ownerId !== userId ) {
-            throw new HTTPException(401, { message: "Unauthorized" });
+            throw new HTTPException(403, { message:  "You do not have permission to perform this action" });
         }
 
         return existingNeutering;
@@ -299,7 +299,7 @@ export const neuteringService = {
             where: {id: userId}
         })
         if (!user) {
-            throw new HTTPException(401, { message: "Unauthorized" });
+            throw new HTTPException(401, { message: "Authentication required" });
         }
 
         const appointment = await prisma.neuteringAppointment.findUnique({
@@ -312,7 +312,7 @@ export const neuteringService = {
         }
 
         if (appointment.userId !== userId && user.role !== "ADMIN" && user.role !== "MANAGER") {
-            throw new HTTPException(403, { message: "You can only cancel your own appointments" });
+            throw new HTTPException(404, { message: "Appointmento not found" });
         }
 
         if (appointment.status === "COMPLETED" || appointment.status === "CANCELLED" || appointment.status === "NO_SHOW") {
@@ -356,7 +356,7 @@ export const neuteringService = {
     /* admin only services */
     async list(userRole: string, filters: ListNeuteringsQueryInput) {
         if (userRole !== "ADMIN" && userRole !== "MANAGER") {
-            throw new HTTPException(401, { message: "Unauthorized" });
+            throw new HTTPException(403, { message:  "You do not have permission to perform this action" });
         }
 
         const limit = filters.limit;
@@ -417,11 +417,11 @@ export const neuteringService = {
             throw new HTTPException(404, { message: "User or Pet not found" });
         }
         if (pet.ownerId !== userId) {
-            throw new HTTPException(403, { message: "You can only register appointments for clinic pets created by your account" });
+            throw new HTTPException(403, { message: "You do not have permission to perform this action" });
         }
 
         if (user.role !== "ADMIN" && user.role !== "MANAGER") {
-            throw new HTTPException(401, { message: "Unauthorized" });
+            throw new HTTPException(403, { message:  "You do not have permission to perform this action" });
         }
 
         /* pets with active neutering appointments or already neutered cannot create another request */
@@ -478,10 +478,10 @@ export const neuteringService = {
             where: {id: userId}
         })
         if (!user) {
-            throw new HTTPException(401, { message: "Unauthorized" });
+            throw new HTTPException(401, { message:  "Authentication required" });
         }
         if (user.role !== "ADMIN" && user.role !== "MANAGER") {
-            throw new HTTPException(401, { message: "Unauthorized" });
+            throw new HTTPException(403, { message:  "You do not have permission to perform this action" });
         }
 
         const appointment = await prisma.neuteringAppointment.findUnique({
@@ -649,7 +649,7 @@ export const neuteringService = {
         });
 
         if (!user || user.role !== "ADMIN") {
-            throw new HTTPException(401, { message: "Unauthorized" });
+            throw new HTTPException(403, { message:  "You do not have permission to perform this action" });
         }
 
         return await prisma.neuteringConfig.upsert({

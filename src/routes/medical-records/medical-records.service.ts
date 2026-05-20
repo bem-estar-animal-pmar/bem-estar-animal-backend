@@ -6,7 +6,7 @@ export const medicalRecordService = {
     /* admin only */
     async create(userRole: string, data: CreateMedicalRecordInput) {
         if (userRole !== "ADMIN" && userRole !== "MANAGER") {
-            throw new HTTPException(401, { message: "Unauthorized" });
+            throw new HTTPException(403, { message:  "You do not have permission to perform this action" });
         }
 
         let finalPetId: string | undefined = undefined;
@@ -66,7 +66,7 @@ export const medicalRecordService = {
 
     async update(recordId: string, userRole: string, data: UpdateMedicalRecordInput) {
         if (userRole !== "ADMIN" && userRole !== "MANAGER") {
-            throw new HTTPException(401, { message: "Unauthorized" });
+            throw new HTTPException(403, { message:  "You do not have permission to perform this action" });
         }
 
 
@@ -91,7 +91,7 @@ export const medicalRecordService = {
 
     async list(userRole: string, filters: ListMedicalRecordsQueryInput) {
         if (userRole !== "ADMIN" && userRole !== "MANAGER") {
-            throw new HTTPException(401, { message: "Unauthorized" });
+            throw new HTTPException(403, { message:  "You do not have permission to perform this action" });
         }
 
 
@@ -111,7 +111,7 @@ export const medicalRecordService = {
     /* admin only: util for frontend */
     async getByAppointmentId(appointmentId: string, type: "NEUTERING" | "EMERGENCY", userRole: string) {
         if (userRole !== "ADMIN" && userRole !== "MANAGER") {
-            throw new HTTPException(401, { message: "Unauthorized" });
+            throw new HTTPException(403, { message:  "You do not have permission to perform this action" });
         }
 
         const whereClause = type === "NEUTERING"
@@ -126,7 +126,7 @@ export const medicalRecordService = {
 
     async delete(recordId: string, userRole: string) {
         if (userRole !== "ADMIN" && userRole !== "MANAGER") {
-            throw new HTTPException(401, { message: "Unauthorized" });
+            throw new HTTPException(403, { message:  "You do not have permission to perform this action" });
         }
 
         const record = await prisma.medicalRecord.findUnique({ where: { id: recordId } });

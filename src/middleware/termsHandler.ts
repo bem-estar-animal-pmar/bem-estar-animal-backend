@@ -14,7 +14,7 @@ export const termsMiddleware = createMiddleware<AuthEnv>(async (ctx, next) => {
     }
 
     if (user.deletedAt !== null) {
-        throw new HTTPException(403, { message: "Account deleted by the user" });
+        throw new HTTPException(403, { message: "This account is no longer active" });
     }
 
     await next();
