@@ -17,7 +17,7 @@ app.post('/request', async (ctx) => {
     const validation = createAdoptionSchema.safeParse(body);
 
     if (!validation.success) {
-        throw new HTTPException(400, { message: "Validation Error", cause: validation.error });
+        throw new HTTPException(400, { message: "Invalid body", cause: validation.error });
     }
 
     const request = await adoptionsService.createAdoption(validation.data);
@@ -86,7 +86,7 @@ app.post('/give-up', async (ctx) => {
     const validation = createGiveUpSchema.safeParse(body);
 
     if (!validation.success) {
-        throw new HTTPException(400, { message: "Validation Error", cause: validation.error });
+        throw new HTTPException(400, { message: "Invalid body", cause: validation.error });
     }
 
     const request = await adoptionsService.createGiveUp(user.id, validation.data);
@@ -116,7 +116,7 @@ app.patch('/give-up/:id/status', async (ctx) => {
     const validation = updateGiveUpStatusSchema.safeParse(body);
 
     if (!validation.success) {
-        throw new HTTPException(400, { message: "Validation Error", cause: validation.error });
+        throw new HTTPException(400, { message: "Invalid body", cause: validation.error });
     }
 
     const updated = await adoptionsService.updateGiveUpStatus(requestId, role, user.name, validation.data);
@@ -180,7 +180,7 @@ app.patch('/request/:id/status', async (ctx) => {
     const validation = updateAdoptionStatusSchema.safeParse(body);
 
     if (!validation.success) {
-        throw new HTTPException(400, { message: "Validation Error", cause: validation.error });
+        throw new HTTPException(400, { message: "Invalid body", cause: validation.error });
     }
 
     const updated = await adoptionsService.updateAdoptionStatus(requestId, role, user.name, validation.data);

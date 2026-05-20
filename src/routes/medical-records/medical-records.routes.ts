@@ -21,7 +21,7 @@ app.post('/', async (ctx) => {
     
     const validation = createMedicalRecordSchema.safeParse(body);
     if (!validation.success) {
-        throw new HTTPException(400, { message: "Validation Error", cause: validation.error });
+        throw new HTTPException(400, { message: "Invalid body", cause: validation.error });
     }
 
     const record = await medicalRecordService.create(role, validation.data);
@@ -54,14 +54,14 @@ app.patch('/:id', async (ctx) => {
     const recordId = ctx.req.param('id');
     const idValidation = idParamSchema.safeParse(recordId);
     if (!idValidation.success) {
-        throw new HTTPException(400, { message: "Validation Error. Invalid params", cause: idValidation.error });
+        throw new HTTPException(400, { message: "Invalid params", cause: idValidation.error });
     }
 
     const body = await ctx.req.json();
     const validation = updateMedicalRecordSchema.safeParse(body);
 
     if (!validation.success) {
-        throw new HTTPException(400, { message: "Validation Error", cause: validation.error });
+        throw new HTTPException(400, { message: "Invalid body", cause: validation.error });
     }
 
     const updated = await medicalRecordService.update(idValidation.data, role, validation.data);
@@ -78,7 +78,7 @@ app.get('/appointment/:type/:appointmentId', async (ctx) => {
     const appointmentId = ctx.req.param('appointmentId');
     const idValidation = idParamSchema.safeParse(appointmentId);
     if (!idValidation.success) {
-        throw new HTTPException(400, { message: "Validation Error. Invalid params", cause: idValidation.error });
+        throw new HTTPException(400, { message: "Invalid params", cause: idValidation.error });
     }
 
     if (type !== "NEUTERING" && type !== "EMERGENCY") {
@@ -86,11 +86,6 @@ app.get('/appointment/:type/:appointmentId', async (ctx) => {
     }
 
     const record = await medicalRecordService.getByAppointmentId(idValidation.data, type, role);
-    
-    if (!record) {
-        throw new HTTPException(404, { message: "No medical record found for this appointment" });
-    }
-
     return ctx.json(record, 200);
 });
 
@@ -104,7 +99,7 @@ app.delete('/:id', async (ctx) => {
     const recordId = ctx.req.param('id');
     const idValidation = idParamSchema.safeParse(recordId);
     if (!idValidation.success) {
-        throw new HTTPException(400, { message: "Validation Error. Invalid params", cause: idValidation.error });
+        throw new HTTPException(400, { message: "Invalid params", cause: idValidation.error });
     }
 
     await medicalRecordService.delete(idValidation.data, role);

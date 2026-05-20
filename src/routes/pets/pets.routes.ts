@@ -17,7 +17,7 @@ app.get('/adoption', async (ctx) => {
 	const validation = listPetsForAdoptionQuerySchema.safeParse(rawQuery);
 
 	if (!validation.success) {
-		throw new HTTPException(400, {  message: "Validation Error. Invalid params", cause: validation.error })
+		throw new HTTPException(400, {  message: "Invalid params", cause: validation.error })
     }
 
 	const query = validation.data;
@@ -45,7 +45,7 @@ app.get('/me', async (ctx) => {
 	const validation = listPetsQuerySchema.safeParse(rawQuery);
 
 	if (!validation.success) {
-		throw new HTTPException(400, {  message: "Validation failed. Invalid filters", cause: validation.error })
+		throw new HTTPException(400, {  message: "Invalid query params", cause: validation.error })
     }
 
 	const query = validation.data;
@@ -72,7 +72,7 @@ app.get('/', async (ctx) => {
     const validation = listPetsQuerySchema.safeParse(rawQuery);
 
     if (!validation.success) {
-        throw new HTTPException(400, {  message: "Validation Error. Invalid params", cause: validation.error })
+        throw new HTTPException(400, {  message: "Invalid query params", cause: validation.error })
     }
 
     const query = validation.data;
@@ -108,7 +108,7 @@ app.post('/', async (ctx) => {
 	const validation = createPetSchema.safeParse(body);
 
 	if (!validation.success) {
-		throw new HTTPException(400, {  message: "Validation Error. Invalid body", cause: validation.error })
+		throw new HTTPException(400, {  message: "Invalid body", cause: validation.error })
     }
 
 	const newPet = await petsService.create(user.id, validation.data);
@@ -125,7 +125,7 @@ app.post('/admin/create-after-emergency', async (ctx) => {
 	const validation = adminCreatePetSchema.safeParse(body);
 
 	if (!validation.success) {
-		throw new HTTPException(400, {  message: "Validation Error. Invalid body", cause: validation.error })
+		throw new HTTPException(400, {  message: "Invalid body", cause: validation.error })
     }
 
 	const role = user.role ?? "USER"; 
@@ -145,7 +145,7 @@ app.patch('/:id', async (ctx) => {
 	const validation = adminUpdatePetSchema.safeParse(body)
 
 	if (!validation.success) {
-		throw new HTTPException(400, {  message: "Validation Error. Invalid body", cause: validation.error })
+		throw new HTTPException(400, {  message: "Invalid body", cause: validation.error })
     }
 
 	const petId = ctx.req.param('id');

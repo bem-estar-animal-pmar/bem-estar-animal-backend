@@ -75,7 +75,7 @@ app.get('/', async (ctx) => {
     const validation = listUsersQuerySchema.safeParse(rawQuery);
 
     if (!validation.success) {
-        throw new HTTPException(400, {  message: "Validation Error. Invalid params", cause: validation.error })
+        throw new HTTPException(400, {  message: "Invalid query params", cause: validation.error })
     }
 
     const query = validation.data;
@@ -112,7 +112,7 @@ app.patch('/admin-update/:id', async (ctx) => {
 
     if (!validation.success) {
         throw new HTTPException(400, {
-            message: "Validation Error. Invalid body",
+            message: "Invalid body",
             cause: validation.error
         });
     }
@@ -140,7 +140,7 @@ app.patch('/block-status/:id', async (ctx) => {
     const validation = adminUpdateBlockSchema.safeParse(body);
 
     if (!validation.success) {
-        throw new HTTPException(400, { message: "Validation Error. Invalid body" });
+        throw new HTTPException(400, { message: "Invalid body" });
     }
 
     const targetUserId = ctx.req.param("id");
@@ -159,7 +159,7 @@ app.patch('/role/:id', async (ctx) => {
     const validation = adminUpdateRoleSchema.safeParse(body);
 
     if (!validation.success) {
-        throw new HTTPException(400, { message: "Validation Error. Invalid body" });
+        throw new HTTPException(400, { message: "Invalid body" });
     }
 
     const targetUserId = ctx.req.param("id");

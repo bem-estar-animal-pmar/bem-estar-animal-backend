@@ -20,7 +20,7 @@ app.post('/', async (ctx) => {
     const validation = createEmergencySchema.safeParse(body);
 
     if (!validation.success) {
-        throw new HTTPException(400, { message: "Validation Error", cause: validation.error });
+        throw new HTTPException(400, { message: "Invalid body", cause: validation.error });
     }
 
     const appointment = await emergencyService.create(user.id, role, validation.data);
@@ -38,7 +38,7 @@ app.post('/admin-register', async (ctx) => {
     const validation = adminCreateEmergencySchema.safeParse(body);
 
     if (!validation.success) {
-        throw new HTTPException(400, { message: "Validation Error", cause: validation.error });
+        throw new HTTPException(400, { message: "Invalid body", cause: validation.error });
     }
 
     const appointment = await emergencyService.createByAdmin(user.id, role, validation.data);

@@ -67,7 +67,7 @@ app.post('/', async (ctx) => {
     const validation = createNeuteringSchema.safeParse(body);
 
     if (!validation.success) {
-        throw new HTTPException(400, { message: "Validation Error", cause: validation.error });
+        throw new HTTPException(400, { message: "Invalid body", cause: validation.error });
     }
 
     const appointment = await neuteringService.create(user.id, validation.data);
@@ -85,7 +85,7 @@ app.post('/admin-register', async (ctx) => {
     const validation = adminCreateNeuteringSchema.safeParse(body);
 
     if (!validation.success) {
-        throw new HTTPException(400, { message: "Validation Error", cause: validation.error });
+        throw new HTTPException(400, { message: "Invalid body", cause: validation.error });
     }
 
     const appointment = await neuteringService.createByAdmin(user.id, validation.data);
@@ -129,9 +129,6 @@ app.patch('/cancel/:id', async (ctx) => {
    @access private (USER, ADMIN) */
 app.get('/calendar', async (ctx) => {
     const user = ctx.get("user")!;
-    if (!user) {
-        throw new HTTPException(403, { message: "Unauthorized access to calendar data" });
-    }
 
     const rawQuery = ctx.req.query();
     const validation = calendarQuerySchema.safeParse(rawQuery);

@@ -69,7 +69,6 @@ export const medicalRecordService = {
             throw new HTTPException(403, { message:  "You do not have permission to perform this action" });
         }
 
-
         const record = await prisma.medicalRecord.findUnique({
             where: { id: recordId }
         });
@@ -88,12 +87,10 @@ export const medicalRecordService = {
         });
     },
 
-
     async list(userRole: string, filters: ListMedicalRecordsQueryInput) {
         if (userRole !== "ADMIN" && userRole !== "MANAGER") {
             throw new HTTPException(403, { message:  "You do not have permission to perform this action" });
         }
-
 
         return await prisma.medicalRecord.findMany({
             where: {
@@ -118,10 +115,15 @@ export const medicalRecordService = {
             ? { neuteringAppointmentId: appointmentId, deletedAt: null }
             : { emergencyAppointmentId: appointmentId, deletedAt: null };
 
-
-        return await prisma.medicalRecord.findUnique({
+        const record = await prisma.medicalRecord.findUnique({
             where: whereClause
         });
+        
+        if (!record) {
+            throw new HTTPException(404, { message: "No medical record found for this appointment" });
+        }
+
+        return record;
     },
 
     async delete(recordId: string, userRole: string) {
