@@ -2,6 +2,7 @@ import { prisma } from "../../lib/prisma.js";
 import { HTTPException } from "hono/http-exception";
 import type { CreateEmergencyInput, AdminCreateEmergencyInput, ListEmergenciesQueryInput, UpdateEmergencyStatusInput, TriageData } from "./emergencies.schema";
 import { MEDICAL_RECORDS_MAP, MAX_DAY_LIMIT_FOR_USER_CANCEL_NEUTERING_REQUEST, MAX_CANCELLATIONS_PER_WEEK } from "../../constants/constants";
+import { appendHistory } from "../../lib/history.js";
 
 /* here, admins should not be able to create emergency requests for other users, but they should be able to attach pets from
 other users (and create pets for other users) to any emergency request because the pet data is added later */
@@ -64,14 +65,6 @@ export const emergencyService = {
             size = petExists.size;
         }
 
-        const nowInBrazil = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
-        
-        const nowInBrazilShort = new Date().toLocaleString("pt-BR", {
-            timeZone: "America/Sao_Paulo",
-            dateStyle: "short",
-            timeStyle: "short"
-        });
-
         const now = new Date(); 
         const sevenDaysAgo = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
 
@@ -90,7 +83,7 @@ export const emergencyService = {
         }
 
         const creator = `pelo responsável`;
-        const initialHistory = `[${nowInBrazilShort}] Pedido criado com status "${MEDICAL_RECORDS_MAP["PENDING"]}" ${creator}.`;
+        const initialHistory = `Pedido criado com status "${MEDICAL_RECORDS_MAP["PENDING"]}" ${creator}.`;
 
         return await prisma.emergencyAppointment.create({
             data: {
@@ -103,9 +96,9 @@ export const emergencyService = {
                 size: size,
                 medicalRecord: {
                     create: {
-                        petId: data.petId || undefined, /* can be undefined if it's a stray animal */
+                        petId: data.petId || undefined, 
                         notes: "",
-                        history: initialHistory
+                        history: appendHistory(null, initialHistory)
                     }
                 }
             }
@@ -229,19 +222,12 @@ export const emergencyService = {
 
         let medicalRecordUpdate = undefined;
         if (appointment.medicalRecord) {
-            const nowInBrazilShort = new Date().toLocaleString("pt-BR", {
-                timeZone: "America/Sao_Paulo",
-                dateStyle: "short",
-                timeStyle: "short"
-            });
-            const creator = user.role !== "USER" ? `pelo administrador ${user.name}` : "pelo responsável";
-            const logEntry = `[${nowInBrazilShort}] Status alterado para "${MEDICAL_RECORDS_MAP["CANCELLED"]}" ${creator}`;
+            const creator = user.role !== "USER" ? `pelo gerente ${user.name}` : "pelo responsável";
+            const logEntry = `Status alterado para "${MEDICAL_RECORDS_MAP["CANCELLED"]}" ${creator}`;
 
             medicalRecordUpdate = {
                 update: {
-                    history: appointment.medicalRecord.history
-                        ? `${appointment.medicalRecord.history}\n${logEntry}`
-                        : logEntry
+                    history: appendHistory(appointment.medicalRecord.history, logEntry)
                 }
             };
         }
@@ -304,14 +290,8 @@ export const emergencyService = {
             size = petExists.size;
         }
 
-        const nowInBrazilShort = new Date().toLocaleString("pt-BR", {
-            timeZone: "America/Sao_Paulo",
-            dateStyle: "short",
-            timeStyle: "short"
-        });
-
-        const creator = `pelo administrador ${user.name}`;
-        const initialHistory = `[${nowInBrazilShort}] Pedido criado com status "${MEDICAL_RECORDS_MAP[data.status]}" ${creator}.`;
+        const creator = `pelo gerente ${user.name}`;
+        const initialHistory = `Pedido criado com status "${MEDICAL_RECORDS_MAP[data.status]}" ${creator}.`;
 
         return await prisma.emergencyAppointment.create({
             data: {
@@ -324,9 +304,9 @@ export const emergencyService = {
                 size: size,
                 medicalRecord: {
                     create: {
-                        petId: data.petId || undefined, /* can be undefined if it's a stray animal */
+                        petId: data.petId || undefined, 
                         notes: "",
-                        history: initialHistory
+                        history: appendHistory(null, initialHistory)
                     }
                 }
             }
@@ -411,18 +391,12 @@ export const emergencyService = {
         /* prepare the history log if status, date, or period are changing and a medical record exists */
         let medicalRecordUpdate = undefined;
         if (appointment.medicalRecord) {
-            const nowInBrazilShort = new Date().toLocaleString("pt-BR", {
-                timeZone: "America/Sao_Paulo",
-                dateStyle: "short",
-                timeStyle: "short"
-            });
-
-            const creator = `pelo administrador ${user.name}`;
+            const creator = `pelo gerente ${user.name}`;
             const logEntries: string[] = [];
 
             /* 1. Check for Status changes */
             if (data.status !== undefined && data.status !== appointment.status) {
-                logEntries.push(`[${nowInBrazilShort}] Status alterado de "${MEDICAL_RECORDS_MAP[appointment.status] || appointment.status}" para "${MEDICAL_RECORDS_MAP[data.status] || data.status}" ${creator}`);
+                logEntries.push(`Status alterado de "${MEDICAL_RECORDS_MAP[appointment.status] || appointment.status}" para "${MEDICAL_RECORDS_MAP[data.status] || data.status}" ${creator}`);
             }
 
             /* 2. Check for Date changes */
@@ -438,15 +412,13 @@ export const emergencyService = {
                         const month = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
                         const year = dateObj.getUTCFullYear();
                         
-                        // Add hour and minute extraction
                         const hours = String(dateObj.getUTCHours()).padStart(2, '0');
                         const minutes = String(dateObj.getUTCMinutes()).padStart(2, '0');
                         
-                        // Return formatted string with time included
                         return `${day}/${month}/${year} às ${hours}:${minutes}`;
                     };
                     
-                    logEntries.push(`[${nowInBrazilShort}] Data e/ou hora alterada de "${formatUtcDateBR(appointment.scheduleDate)}" para "${formatUtcDateBR(data.scheduleDate)}" ${creator}`);
+                    logEntries.push(`Data e/ou hora alterada de "${formatUtcDateBR(appointment.scheduleDate)}" para "${formatUtcDateBR(data.scheduleDate)}" ${creator}`);
                 }
             }
 
@@ -458,43 +430,24 @@ export const emergencyService = {
                     return "Não definido";
                 };
                 
-                logEntries.push(`[${nowInBrazilShort}] Período alterado de "${formatPeriod(appointment.period)}" para "${formatPeriod(data.period)}" ${creator}"`);
+                logEntries.push(`Período alterado de "${formatPeriod(appointment.period)}" para "${formatPeriod(data.period)}" ${creator}`);
             }
 
-            /* If there are any changes to log, group them and update */
+            /* If there are any changes to log, process them sequentially through the helper */
             if (logEntries.length > 0) {
-                const newLogs = logEntries.join('\n');
+                let updatedHistory = appointment.medicalRecord.history;
+                
+                for (const log of logEntries) {
+                    updatedHistory = appendHistory(updatedHistory, log);
+                }
+
                 medicalRecordUpdate = {
                     update: {
-                        history: appointment.medicalRecord.history
-                            ? `${appointment.medicalRecord.history}\n${newLogs}`
-                            : newLogs
+                        history: updatedHistory
                     }
                 };
             }
         }
-
-        /* rule: if admin set as NO_SHOW, we automatically block the user for a month */
-        if (data.status === "NO_SHOW" && appointment.status !== "NO_SHOW") {
-            const blockUntilDate = new Date();
-            blockUntilDate.setDate(blockUntilDate.getDate() + 30); /* add 30 days */
-
-            /* we use transaction to update appointment and user status at the same time */
-            return await prisma.$transaction([
-                prisma.neuteringAppointment.update({
-                    where: { id: appointmentId },
-                    data: {
-                        ...data,
-                        medicalRecord: medicalRecordUpdate
-                    }
-                }),
-                prisma.user.update({
-                    where: { id: appointment.userId },
-                    data: { blockedUntil: blockUntilDate }
-                })
-            ]);
-        }
-
 
         /* punishment also happens if the emergency request was NO_SHOW */
         if (data.status === "NO_SHOW" && appointment.status !== "NO_SHOW") {

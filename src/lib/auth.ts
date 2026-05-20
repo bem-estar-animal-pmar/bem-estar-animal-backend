@@ -274,6 +274,11 @@ export const auth = betterAuth({
                 }
             }
 
+            if (ctx.path === "/delete-user") {
+                throw new APIError("BAD_REQUEST", {
+                    message: "Use account deletion request flow"
+                });
+            }
 
             if (ctx.path === "/update-user") { /* this guarantees this middleware only runs when user tries to udpate their data */
                 const body = ctx.body;

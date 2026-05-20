@@ -15,6 +15,7 @@ import {
     MEDICAL_RECORDS_MAP,
     MAX_CANCELLATIONS_PER_WEEK
 } from "../../constants/constants";
+import { appendHistory } from "../../lib/history.js";
 
 /* frontend will receive absolute 00:00 dates in UTC-0 it must not convert the date to local timezone or it may
 change the day and cause bugs */
@@ -100,15 +101,8 @@ export const neuteringService = {
             }
         }
 
-        /* get now to create and update a medical record history */
-        const nowInBrazilShort = new Date().toLocaleString("pt-BR", {
-            timeZone: "America/Sao_Paulo",
-            dateStyle: "short",
-            timeStyle: "short"
-        });
-
         const creator = `pelo responsável`;
-        const initialHistory = `[${nowInBrazilShort}] Pedido criado com status "${MEDICAL_RECORDS_MAP[neuteringStatus]}" ${creator}.`;
+        const initialHistory = `Pedido criado com status "${MEDICAL_RECORDS_MAP[neuteringStatus]}" ${creator}.`
 
         /* rule 1: if user is blocked by NO_SHOW, don't allow the request */
         if (user.blockedUntil && user.blockedUntil > new Date()) {
@@ -217,7 +211,7 @@ export const neuteringService = {
                     create: {
                         petId: data.petId,
                         notes: "",
-                        history: initialHistory
+                        history: appendHistory("", initialHistory)
                     }
                 }
             }
@@ -340,19 +334,12 @@ export const neuteringService = {
 
         let medicalRecordUpdate = undefined;
         if (appointment.medicalRecord) {
-            const nowInBrazilShort = new Date().toLocaleString("pt-BR", {
-                timeZone: "America/Sao_Paulo",
-                dateStyle: "short",
-                timeStyle: "short"
-            });
-            const creator = user.role !== "USER" ? `pelo administrador ${user.name}` : "pelo responsável";
-            const logEntry = `[${nowInBrazilShort}] Status alterado para "${MEDICAL_RECORDS_MAP["CANCELLED"]}" ${creator}`;
+            const creator = user.role !== "USER" ? `pelo gerente ${user.name}` : "pelo responsável";
+            const logEntry = `Status alterado para "${MEDICAL_RECORDS_MAP["CANCELLED"]}" ${creator}`;
 
             medicalRecordUpdate = {
                 update: {
-                    history: appointment.medicalRecord.history
-                        ? `${appointment.medicalRecord.history}\n${logEntry}`
-                        : logEntry
+                    history: appendHistory(appointment.medicalRecord.history, logEntry)
                 }
             };
         }
@@ -462,15 +449,8 @@ export const neuteringService = {
             throw new HTTPException(400, { message: "Neutering is only allowed for pets between 3 months and 8 years old" });
         }
 
-        /* get now to create and update a medical record history */
-        const nowInBrazilShort = new Date().toLocaleString("pt-BR", {
-            timeZone: "America/Sao_Paulo",
-            dateStyle: "short",
-            timeStyle: "short"
-        });
-
-        const creator = `pelo administrador ${user.name}`
-        const initialHistory = `[${nowInBrazilShort}] Pedido criado com status "${MEDICAL_RECORDS_MAP[data.status]}" ${creator}.`;
+        const creator = `pelo gerente ${user.name}`
+        const initialHistory = `Pedido criado com status "${MEDICAL_RECORDS_MAP[data.status]}" ${creator}.`;
 
         return await prisma.neuteringAppointment.create({
             data: {
@@ -486,7 +466,7 @@ export const neuteringService = {
                     create: {
                         petId: data.petId,
                         notes: "",
-                        history: initialHistory
+                        history: appendHistory("", initialHistory)
                     }
                 }
             },
@@ -517,18 +497,12 @@ export const neuteringService = {
         /* repare the history log if the status is changing and a medical record exists */
         let medicalRecordUpdate = undefined;
         if (appointment.medicalRecord) {
-            const nowInBrazilShort = new Date().toLocaleString("pt-BR", {
-                timeZone: "America/Sao_Paulo",
-                dateStyle: "short",
-                timeStyle: "short"
-            });
-
-            const creator = `pelo administrador ${user.name}`;
+            const creator = `pelo gerente ${user.name}`;
             const logEntries: string[] = [];
 
-            /* 1. Check for Status changes */
+            /* 1. Check for Status changes (Removed manual timestamp) */
             if (data.status !== undefined && data.status !== appointment.status) {
-                logEntries.push(`[${nowInBrazilShort}] Status alterado de "${MEDICAL_RECORDS_MAP[appointment.status] || appointment.status}" para "${MEDICAL_RECORDS_MAP[data.status] || data.status}" ${creator}`);
+                logEntries.push(`Status alterado de "${MEDICAL_RECORDS_MAP[appointment.status] || appointment.status}" para "${MEDICAL_RECORDS_MAP[data.status] || data.status}" ${creator}`);
             }
 
             /* 2. Check for Date changes */
@@ -546,7 +520,7 @@ export const neuteringService = {
                         return `${day}/${month}/${year}`;
                     };
                     
-                    logEntries.push(`[${nowInBrazilShort}] Data alterada de ${formatUtcDateBR(appointment.scheduleDate)} para ${formatUtcDateBR(data.scheduleDate)} ${creator}`);
+                    logEntries.push(`Data alterada de ${formatUtcDateBR(appointment.scheduleDate)} para ${formatUtcDateBR(data.scheduleDate)} ${creator}`);
                 }
             }
 
@@ -558,17 +532,21 @@ export const neuteringService = {
                     return "Não definido";
                 };
                 
-                logEntries.push(`[${nowInBrazilShort}] Período alterado de ${formatPeriod(appointment.period)} para ${formatPeriod(data.period)} ${creator}`);
+                logEntries.push(`Período alterado de ${formatPeriod(appointment.period)} para ${formatPeriod(data.period)} ${creator}`);
             }
 
-            /* If there are any changes to log, group them and update */
+            /* If there are any changes to log, process them sequentially through the helper */
             if (logEntries.length > 0) {
-                const newLogs = logEntries.join('\n');
+                let updatedHistory = appointment.medicalRecord.history;
+                
+                // Process each log entry individually so each gets its own timestamp
+                for (const log of logEntries) {
+                    updatedHistory = appendHistory(updatedHistory, log);
+                }
+
                 medicalRecordUpdate = {
                     update: {
-                        history: appointment.medicalRecord.history
-                            ? `${appointment.medicalRecord.history}\n${newLogs}`
-                            : newLogs
+                        history: updatedHistory
                     }
                 };
             }

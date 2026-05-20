@@ -6,6 +6,7 @@ import type {
     ListGiveUpRequestsQueryInput, ListAdoptionRequestsQueryInput
 } from "./adoptions.schema";
 import { ADOPTIONS_HISTORY_MAP } from "../../constants/constants.js";
+import { appendHistory } from "../../lib/history.js";
 
 /* when aproving a adoption request, the pet status goes to ADOPTED, that means the owner IS NOT the owner o the pet owner field,
 because adoptions can happen to people who do not necessarly have an account. If the user has an account and want to be attached 
@@ -41,21 +42,14 @@ export const adoptionsService = {
             throw new HTTPException(400, { message: "There is already an active or pending request for this pet" });
         }
 
-        /* get now to create and update a medical record history */
-        const nowInBrazilShort = new Date().toLocaleString("pt-BR", {
-            timeZone: "America/Sao_Paulo",
-            dateStyle: "short",
-            timeStyle: "short"
-        });
-
-        const initialHistory = `[${nowInBrazilShort}] Pedido criado com status "${ADOPTIONS_HISTORY_MAP["PENDING"]}" pelo responsável.`;
+        const initialHistory = `Pedido criado com status "${ADOPTIONS_HISTORY_MAP["PENDING"]}" pelo responsável.`;
 
         return await prisma.giveUpRequest.create({
             data: {
                 ...data,
                 userId,
                 status: "PENDING",
-                history: initialHistory
+                history: appendHistory(null, initialHistory)
             }
         });
     },
@@ -206,15 +200,8 @@ export const adoptionsService = {
             throw new HTTPException(400, { message: "Cannot change the status of an already approved or rejected give up request." });
         }
 
-        const nowInBrazil = new Date().toLocaleString("pt-BR", {
-            timeZone: "America/Sao_Paulo",
-            dateStyle: "short",
-            timeStyle: "short"
-        });
-
-        const logEntry = `[${nowInBrazil}] Status alterado de "${ADOPTIONS_HISTORY_MAP[request.status]}" para "${ADOPTIONS_HISTORY_MAP[data.status]}" pelo administrador ${userName}`;
-        
-        let historyUpdate = request.history ? `${request.history}\n${logEntry}` : logEntry;
+        const logEntry = `Status alterado de "${ADOPTIONS_HISTORY_MAP[request.status]}" para "${ADOPTIONS_HISTORY_MAP[data.status]}" pelo gerente ${userName}`;
+        const historyUpdate = appendHistory(request.history, logEntry);
 
         /* if aproved, change pet adoption status to 'FOR_ADOPTION' */
         if (data.status === "APPROVED") {
@@ -236,7 +223,7 @@ export const adoptionsService = {
         /* otherwise it is a reject */
         return await prisma.giveUpRequest.update({
             where: { id: requestId },
-            data: { status: data.status }
+            data: { status: data.status, history: historyUpdate }
         });
     },
     
@@ -254,18 +241,12 @@ export const adoptionsService = {
             throw new HTTPException(400, { message: "This pet is not available for adoption" });
         }
 
-        const nowInBrazilShort = new Date().toLocaleString("pt-BR", {
-            timeZone: "America/Sao_Paulo",
-            dateStyle: "short",
-            timeStyle: "short"
-        });
-
-        const initialHistory = `[${nowInBrazilShort}] Pedido enviado com status ${ADOPTIONS_HISTORY_MAP["PENDING"]} por ${data.adopterName}`;
+        const initialHistory = `Pedido enviado com status ${ADOPTIONS_HISTORY_MAP["PENDING"]} por ${data.adopterName}`;
 
         return await prisma.adoptionRequest.create({
             data: {
                 ...data,
-                history: initialHistory,
+                history: appendHistory(null, initialHistory),
                 status: "PENDING"
             }
         });
@@ -299,15 +280,8 @@ export const adoptionsService = {
             });
         }
 
-        const nowInBrazil = new Date().toLocaleString("pt-BR", {
-            timeZone: "America/Sao_Paulo",
-            dateStyle: "short",
-            timeStyle: "short"
-        });
-
-        const logEntry = `[${nowInBrazil}] Status alterado de "${ADOPTIONS_HISTORY_MAP[request.status]}" para "${ADOPTIONS_HISTORY_MAP[data.status]}" pelo administrador ${userName}`;
-        
-        let historyUpdate = request.history ? `${request.history}\n${logEntry}` : logEntry;
+        const logEntry = `Status alterado de "${ADOPTIONS_HISTORY_MAP[request.status]}" para "${ADOPTIONS_HISTORY_MAP[data.status]}" pelo gerente ${userName}`;
+        const historyUpdate = appendHistory(request.history, logEntry);
 
         if (data.status === "APPROVED" && request.status !== "APPROVED") {
 
@@ -364,10 +338,7 @@ export const adoptionsService = {
                             },
                             data: {
                                 status: "REJECTED",
-                                history:
-                                    adoptionRequest.history ? 
-                                        adoptionRequest.history + `\n [${nowInBrazil}] Pedido rejeitado automaticamente pois outro pedido de adoção para este pet foi aceito.`
-                                        : `[${nowInBrazil}] Pedido rejeitado automaticamente pois outro pedido de adoção para este pet foi aceito.`
+                                history: appendHistory(adoptionRequest.history, "Pedido rejeitado automaticamente pois outro pedido de adoção para este pet foi aceito.")
                             }
                         })
                     )
@@ -428,7 +399,10 @@ export const adoptionsService = {
         /* rejected case */
         return await prisma.adoptionRequest.update({
             where: { id: requestId },
-            data: { status: data.status, history: historyUpdate }
+            data: { 
+                status: data.status, 
+                history: historyUpdate
+            }
         });
     },
 

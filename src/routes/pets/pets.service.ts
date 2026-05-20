@@ -2,7 +2,7 @@ import { prisma } from "../../lib/prisma.js";
 import type { CreatePetInput, AdminCreatePetInput, AdminUpdatePetInput, ListPetsParamsInput, ListPetsForAdoptionParamsInput } from "./pets.schema";
 import { HTTPException } from "hono/http-exception";
 import { PETS_PER_USER_LIMIT } from "../../constants/constants.js"
-import { ADOPTIONS_HISTORY_MAP } from "../../constants/constants.js";
+import { appendHistory } from "../../lib/history.js";
 
 /* admins here should be able to create pets for other users, this is necessary because when a user makes a emergency request, it
 does not comes with a pet */
@@ -88,6 +88,8 @@ export const petsService = {
                 }
             });
 
+            const logText = `Pedido rejeitado automaticamente pois o pet foi removido da vitrine.`
+
             await Promise.all(
                 requestsToReject.map((adoptionRequest) =>
                     tx.adoptionRequest.update({
@@ -96,10 +98,7 @@ export const petsService = {
                         },
                         data: {
                             status: "REJECTED",
-                            history:
-                                adoptionRequest.history ? 
-                                    adoptionRequest.history + `\n [${nowInBrazil}] Pedido rejeitado automaticamente antes de ser aceito pois o pet foi removido da vitrine.`
-                                    : `[${nowInBrazil}] Pedido rejeitado automaticamente antes de ser aceito pois o pet foi removido da vitrine.`
+                            history: appendHistory(adoptionRequest.history, logText)
                         }
                     })
                 )
@@ -138,12 +137,8 @@ export const petsService = {
                 createdAt: "desc",
             },
         });
-
-        const nowInBrazil = new Date().toLocaleString("pt-BR", {
-            timeZone: "America/Sao_Paulo",
-            dateStyle: "short",
-            timeStyle: "short"
-        });
+        
+        const logText = `Status do pedido atualizado para DEVOLVIDO pelo gerente ${userName}.`
 
         /* if there is an approved adoption, set it as returned and change pet adoptionStatus */
         if (latestAdoption) {
@@ -152,10 +147,7 @@ export const petsService = {
                     where: { id: latestAdoption.id },
                     data: {
                         status: "RETURNED",
-                        history:
-                            latestAdoption.history ? 
-                                latestAdoption.history + `\n [${nowInBrazil}] Status do pedido atualizado para DEVOLVIDO pelo administrador ${userName}.`
-                                : `[${nowInBrazil}] Status do pedido atualizado para DEVOLVIDO pelo administrador ${userName}.`
+                        history: appendHistory(latestAdoption.history, logText)
                     }
                 }),
                 prisma.pet.update({

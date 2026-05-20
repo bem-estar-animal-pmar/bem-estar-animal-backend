@@ -160,37 +160,37 @@ export const usersService = {
 
         if (data.cep && data.cep !== existingUser.cep) {
             changedFields.push(
-                `CEP alterado de "${existingUser.cep}" para "${data.cep}"`
+                `Campo CEP alterado de "${existingUser.cep}" para "${data.cep}"`
             );
         }
 
         if (data.street && data.street !== existingUser.street) {
             changedFields.push(
-                `rua alterada de "${existingUser.street}" para "${data.street}"`
+                `Campo rua alterada de "${existingUser.street}" para "${data.street}"`
             );
         }
 
         if (data.neighborhood && data.neighborhood !== existingUser.neighborhood) {
             changedFields.push(
-                `bairro alterado de "${existingUser.neighborhood}" para "${data.neighborhood}"`
+                `Campo bairro alterado de "${existingUser.neighborhood}" para "${data.neighborhood}"`
             );
         }
 
         if (data.city && data.city !== existingUser.city) {
             changedFields.push(
-                `cidade alterada de "${existingUser.city}" para "${data.city}"`
+                `Campo cidade alterada de "${existingUser.city}" para "${data.city}"`
             );
         }
 
         if (data.state && data.state !== existingUser.state) {
             changedFields.push(
-                `estado alterado de "${existingUser.state}" para "${data.state}"`
+                `Campo estado alterado de "${existingUser.state}" para "${data.state}"`
             );
         }
 
         if (data.number && data.number !== existingUser.number) {
             changedFields.push(
-                `número alterado de "${existingUser.number}" para "${data.number}"`
+                `Campo número alterado de "${existingUser.number}" para "${data.number}"`
             );
         }
         
@@ -359,35 +359,8 @@ export const usersService = {
 
         const history = appendHistory(
             existingUser.history,
-            `Conta SUSPENSA PERMANENTEMENTE pelo administrador do SISTEMA por FRAUDE. CPF original (${existingUser.cpf}) liberado.`
+            `Conta SUSPENSA PERMANENTEMENTE pelo administrador do SISTEMA por FRAUDE. CPF original liberado.`
         );
-
-        /*
-        return await prisma.$transaction([
-            // 1. Update the user: Flag as suspended, release CPF, scramble personal info to protect victim
-            prisma.user.update({
-                where: { id: targetUserId },
-                data: {
-                    suspendedAt: now,
-                    cpf: releasedCpf, // free real victim cpf
-                    // keep the email intact so the fraudster hits the @@unique constraint if they try again
-                    name: "Conta",
-                    lastName: "Suspensa",
-                    phone: "00000000000",
-                    cep: "00000000",
-                    street: "Removido",
-                    neighborhood: "Removido",
-                    city: "Removido",
-                    state: "XX",
-                    number: "00",
-                    history: history
-                }
-            }),
-
-            prisma.session.deleteMany({ where: { userId: targetUserId } }),
-            prisma.account.deleteMany({ where: { userId: targetUserId } }),
-            prisma.verification.deleteMany({ where: { identifier: existingUser.email } })
-        ]); */
 
         return await prisma.$transaction(async (tx) => {
             await tx.user.update({
@@ -412,14 +385,8 @@ export const usersService = {
             await tx.session.deleteMany({ where: { userId: targetUserId } }),
             await tx.account.deleteMany({ where: { userId: targetUserId } }),
             await tx.verification.deleteMany({ where: { identifier: existingUser.email } })
-
-            const nowInBrazilShort = new Date().toLocaleString("pt-BR", {
-                timeZone: "America/Sao_Paulo",
-                dateStyle: "short",
-                timeStyle: "short"
-            });
-
-            const logEntry = `[${nowInBrazilShort}] Status alterado para "Cancelado" automaticamente pelo administrador do SISTEMA. (Conta Suspensa)`;
+            
+            const logEntry = `Status alterado para "Cancelado" automaticamente pelo administrador do SISTEMA. (Conta Suspensa)`;
 
             const activeNeuterings = await tx.neuteringAppointment.findMany({
                 where: {
@@ -434,9 +401,7 @@ export const usersService = {
                 if (appointment.medicalRecord) {
                     medicalRecordUpdate = {
                         update: {
-                            history: appointment.medicalRecord.history
-                                ? `${appointment.medicalRecord.history}\n${logEntry}`
-                                : logEntry
+                            history: appendHistory(appointment.medicalRecord.history, logEntry)
                         }
                     };
                 }
@@ -462,9 +427,7 @@ export const usersService = {
                 if (emergency.medicalRecord) {
                     medicalRecordUpdate = {
                         update: {
-                            history: emergency.medicalRecord.history
-                                ? `${emergency.medicalRecord.history}\n${logEntry}`
-                                : logEntry
+                            history: appendHistory(emergency.medicalRecord.history, logEntry)
                         }
                     };
                 }
@@ -489,9 +452,7 @@ export const usersService = {
                     where: { id: giveUp.id },
                     data: {
                         status: "REJECTED", 
-                        history: giveUp.history 
-                            ? `${giveUp.history}\n${logEntry}`
-                            : logEntry
+                        history: appendHistory(giveUp.history, logEntry)
                     }
                 });
             }
@@ -515,9 +476,7 @@ export const usersService = {
                         where: { id: adoption.id },
                         data: {
                             status: "REJECTED",
-                            history: adoption.history
-                                ? `${adoption.history}\n${logEntry}`
-                                : logEntry
+                            history: appendHistory(adoption.history, logEntry)
                         }
                     });
                 }
@@ -565,13 +524,7 @@ export const usersService = {
             
             await tx.session.deleteMany({ where: { userId: targetUserId } });
 
-            const nowInBrazilShort = new Date().toLocaleString("pt-BR", {
-                timeZone: "America/Sao_Paulo",
-                dateStyle: "short",
-                timeStyle: "short"
-            });
-
-            const logEntry = `[${nowInBrazilShort}] Status alterado para "Cancelado" automaticamente. (Conta desativada pelo usuário)`;
+            const logEntry = `Status alterado para "Cancelado" automaticamente. (Conta desativada pelo usuário)`;
 
             const activeNeuterings = await tx.neuteringAppointment.findMany({
                 where: {
@@ -586,9 +539,7 @@ export const usersService = {
                 if (appointment.medicalRecord) {
                     medicalRecordUpdate = {
                         update: {
-                            history: appointment.medicalRecord.history
-                                ? `${appointment.medicalRecord.history}\n${logEntry}`
-                                : logEntry
+                            history: appendHistory(appointment.medicalRecord.history, logEntry)
                         }
                     };
                 }
@@ -614,9 +565,7 @@ export const usersService = {
                 if (emergency.medicalRecord) {
                     medicalRecordUpdate = {
                         update: {
-                            history: emergency.medicalRecord.history
-                                ? `${emergency.medicalRecord.history}\n${logEntry}`
-                                : logEntry
+                            history: appendHistory(emergency.medicalRecord.history, logEntry)
                         }
                     };
                 }
@@ -641,9 +590,7 @@ export const usersService = {
                     where: { id: giveUp.id },
                     data: {
                         status: "REJECTED", 
-                        history: giveUp.history 
-                            ? `${giveUp.history}\n${logEntry}`
-                            : logEntry
+                        history: appendHistory(giveUp.history, logEntry)
                     }
                 });
             }
@@ -667,9 +614,7 @@ export const usersService = {
                         where: { id: adoption.id },
                         data: {
                             status: "REJECTED",
-                            history: adoption.history
-                                ? `${adoption.history}\n${logEntry}`
-                                : logEntry
+                            history: appendHistory(adoption.history, logEntry)
                         }
                     });
                 }
