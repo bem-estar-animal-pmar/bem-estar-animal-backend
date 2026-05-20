@@ -33,7 +33,11 @@ export const adminUpdateUserSchema = z.object({
         .length(2, "State must be UF (2 characters)"),
     number: z.string().trim()
         .min(1, "Number is required")
-        .max(16, "Number is expected to have less than 16 characters")
+        .max(16, "Number is expected to have less than 16 characters"),
+    maxPetLimit: z.coerce.number().min(1).max(100)
+        .optional(),
+    maxMonthlyNeuteringRequestLimit: z.coerce.number().min(1).max(100)
+        .optional(),
 });
 
 export const adminUpdateBlockSchema = z.object({

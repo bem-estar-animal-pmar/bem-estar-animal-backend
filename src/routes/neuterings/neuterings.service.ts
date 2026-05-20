@@ -3,7 +3,6 @@ import { prisma } from "../../lib/prisma.js";
 import { HTTPException } from "hono/http-exception";
 import type { CreateNeuteringInput, AdminCreateNeuteringInput, UpdateNeuteringStatusInput, ListNeuteringsQueryInput, UpdateNeuteringLimitsInput } from "./neuterings.schema";
 import {
-    MAX_PETS_PER_MONTH_BY_CPF,
     MAX_DAY_LIMIT_FOR_USER_CANCEL_NEUTERING_REQUEST,
     MIN_PET_AGE_FOR_NEUTERING, MAX_PET_AGE_FOR_NEUTERING,
     MIN_PET_WEIGHT_FOR_NEUTERING,
@@ -122,7 +121,7 @@ export const neuteringService = {
             }
         });
 
-        if (monthlyCount >= MAX_PETS_PER_MONTH_BY_CPF) {
+        if (monthlyCount >= user.maxMonthlyNeuteringRequestLimit) {
             throw new HTTPException(400, { message: "Monthly limit of neutering appointments reached for this CPF" });
         }
 

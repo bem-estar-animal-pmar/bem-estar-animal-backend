@@ -28,6 +28,9 @@ model User {
   updatedAt     DateTime  @updatedAt
   sessions      Session[]
   accounts      Account[]
+  
+  maxPetLimit   Int       @default(8)
+  maxMonthlyNeuteringRequestLimit   Int       @default(2)
 
   history       String    @db.VarChar(4000)   @default("")
 

@@ -80,6 +80,8 @@ export const usersService = {
                 termsAcceptedAt: true,
                 privacyAcceptedAt: true,
                 termsVersion: true,
+                maxPetLimit: true,
+                maxMonthlyNeuteringRequestLimit: true,
                 privacyVersion: true,
                 suspendedAt: true,
                 updatedAt: true,
@@ -194,6 +196,17 @@ export const usersService = {
             );
         }
         
+        if (data.maxPetLimit && data.maxPetLimit !== existingUser.maxPetLimit) {
+            changedFields.push(
+                `Limite de pets alterado de "${existingUser.maxPetLimit}" para "${data.maxPetLimit}"`
+            );
+        }
+
+        if (data.maxMonthlyNeuteringRequestLimit && data.maxMonthlyNeuteringRequestLimit !== existingUser.maxMonthlyNeuteringRequestLimit) {
+            changedFields.push(
+                `Limite de agendamento de castração mensal alterado de "${existingUser.maxMonthlyNeuteringRequestLimit}" para "${data.maxMonthlyNeuteringRequestLimit}"`
+            );
+        }
 
         const history =
             changedFields.length > 0

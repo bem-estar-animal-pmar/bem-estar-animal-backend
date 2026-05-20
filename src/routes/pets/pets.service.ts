@@ -1,7 +1,6 @@
 import { prisma } from "../../lib/prisma.js";
 import type { CreatePetInput, AdminCreatePetInput, AdminUpdatePetInput, ListPetsParamsInput, ListPetsForAdoptionParamsInput } from "./pets.schema";
 import { HTTPException } from "hono/http-exception";
-import { PETS_PER_USER_LIMIT } from "../../constants/constants.js"
 import { appendHistory } from "../../lib/history.js";
 
 /* admins here should be able to create pets for other users, this is necessary because when a user makes a emergency request, it
@@ -232,7 +231,16 @@ export const petsService = {
             }
         });
 
-        if (petCount >= PETS_PER_USER_LIMIT) {
+        const userExists = await prisma.user.findUnique({
+            where: {
+                id: userId
+            }
+        })
+        if (!userExists) {
+            throw new HTTPException(404, { message: "User not found" });
+        }
+
+        if (petCount >= userExists.maxPetLimit) {
             throw new HTTPException(400, { message: "Maximum pet limit per user reached" });
         }
 
