@@ -37,6 +37,30 @@ app.post("/revoke-terms", async (ctx) => {
     });
 });
 
+/* @desc flag account to be deleted after 30 days
+   @route POST /api/admin/users/deactivate-account
+   @access private (USER) */
+app.post("/deactivate-account", async (ctx) => {
+    const user = ctx.get("user")!;
+    await usersService.deactivateAccount(user.id);
+
+    return ctx.json({
+        message: "Account deactivated successfuly"
+    });
+});
+
+/* @desc reactivate user account
+   @route POST /api/admin/users/reactivate-account
+   @access private (USER) */
+app.post("/reactivate-account", async (ctx) => {
+    const user = ctx.get("user")!;
+    await usersService.reactivateAccount(user.id);
+
+    return ctx.json({
+        message: "Account reactivated successfuly"
+    });
+});
+
 /* ---!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! user auto-delete route should be here --- */
 
 app.use('*', termsMiddleware);

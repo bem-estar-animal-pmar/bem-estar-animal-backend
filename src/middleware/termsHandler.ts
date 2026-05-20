@@ -13,5 +13,9 @@ export const termsMiddleware = createMiddleware<AuthEnv>(async (ctx, next) => {
         throw new HTTPException(403, { message: "Terms acceptance required" });
     }
 
+    if (user.deletedAt !== null) {
+        throw new HTTPException(403, { message: "Account deleted by the user" });
+    }
+
     await next();
 });

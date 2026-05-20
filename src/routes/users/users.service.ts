@@ -2,20 +2,7 @@ import { AdminUpdateUserInput, ListUsersQueryInput } from "./users.schema";
 import { prisma } from "../../lib/prisma.js";
 import { HTTPException } from "hono/http-exception";
 import { CURRENT_PRIVACY_POLICY_VERSION, CURRENT_TERMS_OF_SERVICE_VERSION, ROLE_STATUS_MAP } from "../../constants/constants";
-
-const appendHistory = ( currentHistory: string | null,  message: string ) => {
-    const nowInBrazil = new Date().toLocaleString("pt-BR", {
-        timeZone: "America/Sao_Paulo",
-        dateStyle: "short",
-        timeStyle: "short"
-    });
-
-    const entry = `[${nowInBrazil}] ${message}`;
-
-    return currentHistory
-        ? `${currentHistory}\n${entry}`
-        : entry;
-};
+import { appendHistory } from "../../lib/history";
 
 export const usersService = {
     async list(userRole: string, filters: ListUsersQueryInput) {
@@ -303,7 +290,6 @@ export const usersService = {
         });
     },
 
-
     /* user routes only for terms (LGPD) */
 
     async reacceptTerms(userId: string) {
@@ -546,4 +532,187 @@ export const usersService = {
             }
         });
     },
+
+    async deactivateAccount(targetUserId: string) {
+        const existingUser = await prisma.user.findUnique({
+            where: { 
+                id: targetUserId 
+            }
+        });
+
+        if (!existingUser) {
+            throw new HTTPException(404, { message: "User not found" });
+        }
+
+        if (existingUser.deletedAt) {
+            throw new HTTPException(409, { message: "Account is already deactivated" });
+        }
+
+        const now = new Date();
+        const history = appendHistory(
+            existingUser.history,
+            `Conta desativada pelo próprio usuário. (Aguardando prazo de exclusão ou retenção legal)`
+        );
+
+        return await prisma.$transaction(async (tx) => {
+            await tx.user.update({
+                where: { id: targetUserId },
+                data: {
+                    deletedAt: now,
+                    history: history
+                }
+            });
+            
+            await tx.session.deleteMany({ where: { userId: targetUserId } });
+
+            const nowInBrazilShort = new Date().toLocaleString("pt-BR", {
+                timeZone: "America/Sao_Paulo",
+                dateStyle: "short",
+                timeStyle: "short"
+            });
+
+            const logEntry = `[${nowInBrazilShort}] Status alterado para "Cancelado" automaticamente. (Conta desativada pelo usuário)`;
+
+            const activeNeuterings = await tx.neuteringAppointment.findMany({
+                where: {
+                    userId: targetUserId,
+                    status: { in: ["PENDING", "AWAITING_EXAMS", "CONFIRMED"] }
+                },
+                include: { medicalRecord: true }
+            });
+
+            for (const appointment of activeNeuterings) {
+                let medicalRecordUpdate = undefined;
+                if (appointment.medicalRecord) {
+                    medicalRecordUpdate = {
+                        update: {
+                            history: appointment.medicalRecord.history
+                                ? `${appointment.medicalRecord.history}\n${logEntry}`
+                                : logEntry
+                        }
+                    };
+                }
+                await tx.neuteringAppointment.update({
+                    where: { id: appointment.id },
+                    data: {
+                        status: "CANCELLED",
+                        medicalRecord: medicalRecordUpdate
+                    }
+                });
+            }
+
+            const activeEmergencies = await tx.emergencyAppointment.findMany({
+                where: {
+                    userId: targetUserId,
+                    status: { in: ["PENDING", "CONFIRMED"] }
+                },
+                include: { medicalRecord: true }
+            });
+
+            for (const emergency of activeEmergencies) {
+                let medicalRecordUpdate = undefined;
+                if (emergency.medicalRecord) {
+                    medicalRecordUpdate = {
+                        update: {
+                            history: emergency.medicalRecord.history
+                                ? `${emergency.medicalRecord.history}\n${logEntry}`
+                                : logEntry
+                        }
+                    };
+                }
+                await tx.emergencyAppointment.update({
+                    where: { id: emergency.id },
+                    data: {
+                        status: "CANCELLED",
+                        medicalRecord: medicalRecordUpdate
+                    }
+                });
+            }
+
+            const activeGiveUps = await tx.giveUpRequest.findMany({
+                where: {
+                    userId: targetUserId,
+                    status: "PENDING"
+                }
+            });
+
+            for (const giveUp of activeGiveUps) {
+                await tx.giveUpRequest.update({
+                    where: { id: giveUp.id },
+                    data: {
+                        status: "REJECTED", 
+                        history: giveUp.history 
+                            ? `${giveUp.history}\n${logEntry}`
+                            : logEntry
+                    }
+                });
+            }
+
+            const userPets = await tx.pet.findMany({
+                where: { ownerId: targetUserId },
+                select: { id: true }
+            });
+            const userPetIds = userPets.map(pet => pet.id);
+
+            if (userPetIds.length > 0) {
+                const activeAdoptions = await tx.adoptionRequest.findMany({
+                    where: {
+                        petId: { in: userPetIds },
+                        status: "PENDING"
+                    }
+                });
+
+                for (const adoption of activeAdoptions) {
+                    await tx.adoptionRequest.update({
+                        where: { id: adoption.id },
+                        data: {
+                            status: "REJECTED",
+                            history: adoption.history
+                                ? `${adoption.history}\n${logEntry}`
+                                : logEntry
+                        }
+                    });
+                }
+                
+                await tx.pet.updateMany({
+                    where: { 
+                        id: { in: userPetIds },
+                        adoptionStatus: "FOR_ADOPTION" 
+                    },
+                    data: { adoptionStatus: "NONE" }
+                });
+            }
+        });
+    },
+
+    async reactivateAccount(targetUserId: string) {
+        const existingUser = await prisma.user.findUnique({
+            where: { id: targetUserId }
+        });
+
+        if (!existingUser) {
+            throw new HTTPException(404, { message: "User not found" });
+        }
+
+        if (existingUser.suspendedAt) {
+            throw new HTTPException(403, { message: "Cannot reactivate a suspended account" });
+        }
+
+        if (!existingUser.deletedAt) {
+            throw new HTTPException(400, { message: "Account is not deactivated" });
+        }
+
+        const history = appendHistory(
+            existingUser.history,
+            `Conta REATIVADA pelo próprio usuário.`
+        );
+
+        return await prisma.user.update({
+            where: { id: targetUserId },
+            data: {
+                deletedAt: null,
+                history: history
+            }
+        });
+    }
 }

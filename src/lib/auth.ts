@@ -222,7 +222,7 @@ export const auth = betterAuth({
                 type: "date",
                 required: false,
                 input: false,
-                returned: false
+                returned: true
             }
         }
     },
