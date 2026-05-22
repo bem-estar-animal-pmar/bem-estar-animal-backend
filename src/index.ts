@@ -4,6 +4,7 @@ import { auth } from "./lib/auth";
 import { errorMiddleware } from "./middleware/errorHandler";
 
 import "./jobs/appointments.jobs"
+import "./jobs/accounts.jobs"
 
 import petsRouter from "./routes/pets/pets.routes"
 import neuteringRouter from "./routes/neuterings/neuterings.routes"
