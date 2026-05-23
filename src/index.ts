@@ -2,6 +2,7 @@ import { Hono } from "hono"
 import { cors } from "hono/cors"
 import { auth } from "./lib/auth";
 import { errorMiddleware } from "./middleware/errorHandler";
+import { secureHeaders } from "hono/secure-headers";
 
 import "./jobs/appointments.jobs"
 import "./jobs/accounts.jobs"
@@ -13,15 +14,16 @@ import adoptionRouter from "./routes/adoptions/adoptions.routes"
 import medicalRecordRouter from "./routes/medical-records/medical-records.routes"
 import userRouter from "./routes/users/users.routes"
 
-/* SQL Inject is protected by Prisma */
+/* IDOR, SQL Injection and XSS is protected by Prisma and zod */
+/* secureHeaders basics added */
 /* CORS is configured */
-/* secureHeaders must add */
 /* CSRF and Auth protection configured by better auth */
-/* XSS script injection: zod is cleaning all auth fields, must check other routes */
 /* rate limiter must add on better auth and here */
 /* IDOR protection: must check each route */
 
 const app = new Hono();
+
+app.use('*', secureHeaders());
 
 const allowedOrigins = process.env.ALLOWED_CORS_URLS ? JSON.parse(process.env.ALLOWED_CORS_URLS) : ["http://localhost:3000"];
 
