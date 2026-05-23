@@ -4,6 +4,7 @@ import { termsMiddleware } from '../../middleware/termsHandler';
 import { HTTPException } from 'hono/http-exception';
 import { emergencyService } from "./emergencies.service";
 import { createEmergencySchema, adminCreateEmergencySchema, listEmergenciesQuerySchema, updateEmergencyStatusSchema } from './emergencies.schema';
+import { strictRateLimiter } from '../../middleware/limitHandler';
 
 const app = new Hono<AuthEnv>();
 
@@ -13,7 +14,7 @@ app.use('*', termsMiddleware);
 /* @desc create a new emergency appointment request
    @route POST /api/emergencies
    @access private (USER) */
-app.post('/', async (ctx) => {
+app.post('/', strictRateLimiter(60 * 1000, 5), async (ctx) => {
     const user = ctx.get("user")!;
     const role = user.role ?? "USER";
     const body = await ctx.req.json();
@@ -31,7 +32,7 @@ app.post('/', async (ctx) => {
 /* @desc create a new neutering appointment as admin, usually for registering completed appointments
    @route POST /api/emergencies/admin-register
    @access private (ADMIN) */
-app.post('/admin-register', async (ctx) => {
+app.post('/admin-register', strictRateLimiter(60 * 1000, 10), async (ctx) => {
     const user = ctx.get("user")!;
     const role = user.role ?? "USER";
     const body = await ctx.req.json();
@@ -49,7 +50,7 @@ app.post('/admin-register', async (ctx) => {
 /* @desc list current user's emergency requests
    @route GET /api/emergencies/me
    @access private (USER) */
-app.get('/me', async (ctx) => {
+app.get('/me', strictRateLimiter(60 * 1000, 60), async (ctx) => {
     const user = ctx.get("user")!;
     const rawQuery = ctx.req.query();
     const validation = listEmergenciesQuerySchema.safeParse(rawQuery);
@@ -65,7 +66,7 @@ app.get('/me', async (ctx) => {
 /* @desc get a specific emergency data 
    @route GET https://example.com/api/emergencies/details/:id
    @access private (USER, ADMIN) */
-app.get('/details/:id', async (ctx) => {
+app.get('/details/:id', strictRateLimiter(60 * 1000, 60), async (ctx) => {
     const user = ctx.get("user")!;
 
     const emergencyId = ctx.req.param('id');
@@ -78,7 +79,7 @@ app.get('/details/:id', async (ctx) => {
 /* @desc list all emergency requests (with filters and pagination)
    @route GET /api/emergencies?page=1&limit=20
    @access private (ADMIN) */
-app.get('/', async (ctx) => {
+app.get('/', strictRateLimiter(60 * 1000, 60), async (ctx) => {
     const user = ctx.get("user")!;
     const role = user.role ?? "USER";
     const rawQuery = ctx.req.query();
@@ -95,7 +96,7 @@ app.get('/', async (ctx) => {
 /* @desc admin updates emergency status (schedules or completes)
    @route PATCH /api/emergencies/status/:id
    @access private (ADMIN) */
-app.patch('/status/:id', async (ctx) => {
+app.patch('/status/:id', strictRateLimiter(60 * 1000, 10), async (ctx) => {
     const user = ctx.get("user")!;
     const appointmentId = ctx.req.param('id');
 
@@ -113,7 +114,7 @@ app.patch('/status/:id', async (ctx) => {
 /* @desc user cancels their own appointment
    @route PATCH /api/emergencies/cancel/:id
    @access private (USER) */
-app.patch('/cancel/:id', async (ctx) => {
+app.patch('/cancel/:id', strictRateLimiter(60 * 1000, 5), async (ctx) => {
     const user = ctx.get("user")!;
     const appointmentId = ctx.req.param('id');
 

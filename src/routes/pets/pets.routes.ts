@@ -4,6 +4,7 @@ import { termsMiddleware } from '../../middleware/termsHandler';
 import { HTTPException } from 'hono/http-exception';
 import { petsService } from "./pets.service";
 import { createPetSchema, adminCreatePetSchema, listPetsQuerySchema, adminUpdatePetSchema, listPetsForAdoptionQuerySchema } from './pets.schema';
+import { strictRateLimiter } from '../../middleware/limitHandler';
 
 const app = new Hono<AuthEnv>()
 
@@ -12,7 +13,7 @@ const app = new Hono<AuthEnv>()
 /* @desc list all pets for adoption, so not authenticated users can create adoption requests
    @route GET https://example.com/api/pets/adoption
    @access public (any) */
-app.get('/adoption', async (ctx) => {
+app.get('/adoption', strictRateLimiter(60 * 1000, 20), async (ctx) => {
 	const rawQuery = ctx.req.query();
 	const validation = listPetsForAdoptionQuerySchema.safeParse(rawQuery);
 
@@ -38,7 +39,7 @@ app.use('*', termsMiddleware);
 /* @desc list the current user's pet@route GET https://example.com/api/pets/me?name=Rex&species=DOG&breed=pitbulls with filtering
    
    @access private (USER, ADMIN) */
-app.get('/me', async (ctx) => {
+app.get('/me', strictRateLimiter(60 * 1000, 60), async (ctx) => {
     const user = ctx.get("user")!; /* authMiddle already make sure 'user' exists */
 
 	const rawQuery = ctx.req.query();
@@ -65,7 +66,7 @@ app.get('/me', async (ctx) => {
 /* @desc list any pets with filtering
    @route GET https://example.com/api/pets/userId=1234&name=Rex&species=DOG&breed=pitbull
    @access private (ADMIN) */
-app.get('/', async (ctx) => {
+app.get('/', strictRateLimiter(60 * 1000, 60), async (ctx) => {
     const user = ctx.get("user")!; /* authMiddle already make sure 'user' exists */
     
     const rawQuery = ctx.req.query();
@@ -87,7 +88,7 @@ app.get('/', async (ctx) => {
 /* @desc get a specific pet data
    @route GET https://example.com/api/pets/details/:id
    @access private (USER, ADMIN) */
-app.get('/details/:id', async (ctx) => {
+app.get('/details/:id', strictRateLimiter(60 * 1000, 60), async (ctx) => {
     const user = ctx.get("user")!; /* authMiddle already make sure 'user' exists */
 
     const petId = ctx.req.param('id');
@@ -101,7 +102,7 @@ app.get('/details/:id', async (ctx) => {
 /* @desc create a new pet
    @route POST https://example.com/api/pets
    @access private (USER, ADMIN) */
-app.post('/', async (ctx) => {
+app.post('/', strictRateLimiter(60 * 1000, 5), async (ctx) => {
 	const user = ctx.get("user")!;
 
 	const body = await ctx.req.json();
@@ -118,7 +119,7 @@ app.post('/', async (ctx) => {
 /* @desc admin create a new pet for user, skipping any limit rules
    @route POST https://example.com/api/pets/admin/create-after-emergency
    @access private (ADMIN) */
-app.post('/admin/create-after-emergency', async (ctx) => {
+app.post('/admin/create-after-emergency', strictRateLimiter(60 * 1000, 10), async (ctx) => {
 	const user = ctx.get("user")!;
 
 	const body = await ctx.req.json();
@@ -138,7 +139,7 @@ app.post('/admin/create-after-emergency', async (ctx) => {
 /* @desc update an user's pet fields 
    @route PATCH https://example.com/api/pets/:id
    @access private (USER, ADMIN) */
-app.patch('/:id', async (ctx) => {
+app.patch('/:id', strictRateLimiter(60 * 1000, 5), async (ctx) => {
 	const user = ctx.get("user")!;
 
 	const body = await ctx.req.json()
@@ -158,7 +159,7 @@ app.patch('/:id', async (ctx) => {
 /* @desc delete an user's pet
    @route DELETE https://example.com/api/pets/:id
    @access private (ADMIN) */
-app.delete('/:id', async (ctx) => {
+app.delete('/:id', strictRateLimiter(60 * 1000, 5), async (ctx) => {
 	const user = ctx.get("user")!;
 
 	const petId = ctx.req.param('id');
@@ -176,7 +177,7 @@ app.delete('/:id', async (ctx) => {
 /* @desc update a pet adoption status from FOR_ADOPTION to NONE
    @route PATCH https://example.com/api/pets/:id/undo-give-up
    @access private (USER, ADMIN) */
-app.patch('/:id/undo-give-up', async (ctx) => {
+app.patch('/:id/undo-give-up', strictRateLimiter(60 * 1000, 5), async (ctx) => {
 	const user = ctx.get("user")!;
 	const petId = ctx.req.param('id');
 	const role = user.role ?? "USER"; 
@@ -189,7 +190,7 @@ app.patch('/:id/undo-give-up', async (ctx) => {
 /* @desc update a pet adoption status from ADOPTED to NONE (admin only)
    @route PATCH https://example.com/api/pets/:id/adoption-returnd
    @access private (ADMIN) */
-app.patch('/:id/adoption-return', async (ctx) => {
+app.patch('/:id/adoption-return', strictRateLimiter(60 * 1000, 5), async (ctx) => {
 	const user = ctx.get("user")!;
 	const petId = ctx.req.param('id');
 	const role = user.role ?? "USER"; 

@@ -4,6 +4,7 @@ import { termsMiddleware } from '../../middleware/termsHandler';
 import { HTTPException } from 'hono/http-exception';
 import { medicalRecordService } from "./medical-records.service";
 import { createMedicalRecordSchema, updateMedicalRecordSchema, listMedicalRecordsQuerySchema, idParamSchema } from './medical-records.schema';
+import { strictRateLimiter } from '../../middleware/limitHandler';
 
 const app = new Hono<AuthEnv>();
 
@@ -14,7 +15,7 @@ app.use('*', termsMiddleware);
 /* @desc create a new medical record for an appointment
    @route POST /api/medical-records
    @access private (ADMIN) */
-app.post('/', async (ctx) => {
+app.post('/', strictRateLimiter(60 * 1000, 10), async (ctx) => {
     const user = ctx.get("user")!;
     const role = user.role ?? "USER";
     const body = await ctx.req.json();
@@ -31,7 +32,7 @@ app.post('/', async (ctx) => {
 /* @desc list medical records (usually filtered by petId)
    @route GET /api/medical-records
    @access private (ADMIN) */
-app.get('/', async (ctx) => {
+app.get('/', strictRateLimiter(60 * 1000, 60), async (ctx) => {
     const user = ctx.get("user")!;
     const role = user.role ?? "USER";
     const rawQuery = ctx.req.query();
@@ -48,7 +49,7 @@ app.get('/', async (ctx) => {
 /* @desc update notes of an existing medical record
    @route PATCH /api/medical-records/:id
    @access private (ADMIN) */
-app.patch('/:id', async (ctx) => {
+app.patch('/:id', strictRateLimiter(60 * 1000, 20), async (ctx) => {
     const user = ctx.get("user")!;
     const role = user.role ?? "USER";
     const recordId = ctx.req.param('id');
@@ -71,7 +72,7 @@ app.patch('/:id', async (ctx) => {
 /* @desc get a medical record by its appointment ID
    @route GET /api/medical-records/appointment/:type/:appointmentId
    @access private (ADMIN) */
-app.get('/appointment/:type/:appointmentId', async (ctx) => {
+app.get('/appointment/:type/:appointmentId', strictRateLimiter(60 * 1000, 60), async (ctx) => {
     const user = ctx.get("user")!;
     const role = user.role ?? "USER";
     const type = ctx.req.param('type').toUpperCase();
@@ -93,7 +94,7 @@ app.get('/appointment/:type/:appointmentId', async (ctx) => {
 /* @desc soft delete a medical record
    @route DELETE /api/medical-records/:id
    @access private (ADMIN) */
-app.delete('/:id', async (ctx) => {
+app.delete('/:id', strictRateLimiter(60 * 1000, 5), async (ctx) => {
     const user = ctx.get("user")!;
     const role = user.role ?? "USER";
     const recordId = ctx.req.param('id');

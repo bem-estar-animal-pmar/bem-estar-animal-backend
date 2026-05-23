@@ -4,6 +4,7 @@ import { termsMiddleware } from '../../middleware/termsHandler';
 import { HTTPException } from 'hono/http-exception';
 import { adoptionsService } from "./adoptions.service";
 import { createGiveUpSchema, updateGiveUpStatusSchema, createAdoptionSchema, updateAdoptionStatusSchema, listGiveUpRequestsQuerySchema, listAdoptionRequestsQuerySchema} from './adoptions.schema';
+import { strictRateLimiter } from '../../middleware/limitHandler';
 
 const app = new Hono<AuthEnv>();
 
@@ -12,7 +13,7 @@ const app = new Hono<AuthEnv>();
 /* @desc public form to request adoption of a pet
    @route POST /api/adoptions/request
    @access public (any) */
-app.post('/request', async (ctx) => {
+app.post('/request', strictRateLimiter(60 * 1000, 5), async (ctx) => {
     const body = await ctx.req.json();
     const validation = createAdoptionSchema.safeParse(body);
 
@@ -34,7 +35,7 @@ app.use('*', termsMiddleware);
 /* @desc list current user's give up requests
    @route GET /api/adoptions/give-up/me
    @access private (USER) */
-app.get('/give-up/me', async (ctx) => {
+app.get('/give-up/me', strictRateLimiter(60 * 1000, 60), async (ctx) => {
     const user = ctx.get("user")!;
     const rawQuery = ctx.req.query();
     const validation = listGiveUpRequestsQuerySchema.safeParse(rawQuery);
@@ -50,7 +51,7 @@ app.get('/give-up/me', async (ctx) => {
 /* @desc list all give up requests (users wanting to donate)
    @route GET /api/adoptions/give-up
    @access private (ADMIN) */
-app.get('/give-up', async (ctx) => {
+app.get('/give-up', strictRateLimiter(60 * 1000, 60), async (ctx) => {
     const user = ctx.get("user")!;
     const role = user.role ?? "USER";
     const rawQuery = ctx.req.query();
@@ -67,7 +68,7 @@ app.get('/give-up', async (ctx) => {
 /* @desc get a specific give up request data data
    @route GET https://example.com/api/adoptions/give-up/details/:id
    @access private (USER, ADMIN) */
-app.get('/give-up/details/:id', async (ctx) => {
+app.get('/give-up/details/:id', strictRateLimiter(60 * 1000, 60), async (ctx) => {
     const user = ctx.get("user")!; /* authMiddle already make sure 'user' exists */
 
     const requestId = ctx.req.param('id');
@@ -80,7 +81,7 @@ app.get('/give-up/details/:id', async (ctx) => {
 /* @desc user requests to give up their pet
    @route POST /api/adoptions/give-up
    @access private (USER) */
-app.post('/give-up', async (ctx) => {
+app.post('/give-up', strictRateLimiter(60 * 1000, 5), async (ctx) => {
     const user = ctx.get("user")!;
     const body = await ctx.req.json();
     const validation = createGiveUpSchema.safeParse(body);
@@ -96,7 +97,7 @@ app.post('/give-up', async (ctx) => {
 /* @desc user cancels their own give up request
    @route PATCH /api/giveup/:id/cancel
    @access private (USER) */
-app.patch('/give-up/:id/cancel', async (ctx) => {
+app.patch('/give-up/:id/cancel', strictRateLimiter(60 * 1000, 5), async (ctx) => {
     const user = ctx.get("user")!;
     const requestId = ctx.req.param('id');
 
@@ -107,7 +108,7 @@ app.patch('/give-up/:id/cancel', async (ctx) => {
 /* @desc admin updates a give up request (Approve = Pet goes to adoption vitrine)
    @route PATCH /api/adoptions/give-up/:id/status
    @access private (ADMIN) */
-app.patch('/give-up/:id/status', async (ctx) => {
+app.patch('/give-up/:id/status', strictRateLimiter(60 * 1000, 10), async (ctx) => {
     const user = ctx.get("user")!;
     const role = user.role ?? "USER";
     const requestId = ctx.req.param('id');
@@ -128,7 +129,7 @@ app.patch('/give-up/:id/status', async (ctx) => {
 /* @desc list all adoption requests (people wanting to adopt)
    @route GET /api/adoptions/request
    @access private (ADMIN) */
-app.get('/request', async (ctx) => {
+app.get('/request', strictRateLimiter(60 * 1000, 60), async (ctx) => {
     const user = ctx.get("user")!;
     const role = user.role ?? "USER";
     const rawQuery = ctx.req.query();
@@ -145,7 +146,7 @@ app.get('/request', async (ctx) => {
 /* @desc get a specific adoption request data
    @route GET https://example.com/api/adoptions/request/details/:id
    @access private (USER, ADMIN) */
-app.get('/request/details/:id', async (ctx) => {
+app.get('/request/details/:id', strictRateLimiter(60 * 1000, 60), async (ctx) => {
     const user = ctx.get("user")!; /* authMiddle already make sure 'user' exists */
 
     const requestId = ctx.req.param('id');
@@ -159,7 +160,7 @@ app.get('/request/details/:id', async (ctx) => {
 to show data on pet dashboard (user and admin) when pet is ADOPTED (in future)
    @route GET /api/adoptions/pet/:petId/latest-adoption
    @access private (USER / ADMIN) */
-app.get('/pet/:petId/latest-adoption', async (ctx) => {
+app.get('/pet/:petId/latest-adoption', strictRateLimiter(60 * 1000, 60), async (ctx) => {
     const user = ctx.get("user")!;
     const role = user.role ?? "USER";
     const petId = ctx.req.param('petId');
@@ -171,7 +172,7 @@ app.get('/pet/:petId/latest-adoption', async (ctx) => {
 /* @desc admin approves/rejects an adoption request
    @route PATCH /api/adoptions/request/:id/status
    @access private (ADMIN) */
-app.patch('/request/:id/status', async (ctx) => {
+app.patch('/request/:id/status', strictRateLimiter(60 * 1000, 10), async (ctx) => {
     const user = ctx.get("user")!;
     const role = user.role ?? "USER";
     const requestId = ctx.req.param('id');

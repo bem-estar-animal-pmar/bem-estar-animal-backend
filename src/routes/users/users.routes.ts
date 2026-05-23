@@ -4,6 +4,7 @@ import { termsMiddleware } from '../../middleware/termsHandler';
 import { HTTPException } from 'hono/http-exception';
 import { usersService } from './users.service';
 import { adminUpdateUserSchema, listUsersQuerySchema, adminUpdateBlockSchema, adminUpdateRoleSchema } from './users.schema';
+import { strictRateLimiter } from '../../middleware/limitHandler';
 
 const app = new Hono<AuthEnv>()
 
@@ -14,7 +15,7 @@ app.use('*', authMiddleware);
 /* @desc reaccept terms
    @route POST /api/admin/users/reaccept-terms
    @access private */
-app.post("/reaccept-terms", async (ctx) => {
+app.post("/reaccept-terms", strictRateLimiter(), async (ctx) => {
     const user = ctx.get("user")!;
 
     await usersService.reacceptTerms(user.id);
@@ -27,7 +28,7 @@ app.post("/reaccept-terms", async (ctx) => {
 /* @desc revoke LGPD consent
    @route POST /api/admin/users/revoke-terms
    @access private */
-app.post("/revoke-terms", async (ctx) => {
+app.post("/revoke-terms", strictRateLimiter(60 * 1000, 5), async (ctx) => {
     const user = ctx.get("user")!;
 
     await usersService.revokeTerms(user.id);
@@ -40,7 +41,7 @@ app.post("/revoke-terms", async (ctx) => {
 /* @desc flag account to be deleted after 30 days
    @route POST /api/admin/users/deactivate-account
    @access private (USER) */
-app.post("/deactivate-account", async (ctx) => {
+app.post("/deactivate-account", strictRateLimiter(60 * 1000, 3), async (ctx) => {
     const user = ctx.get("user")!;
     await usersService.deactivateAccount(user.id);
 
@@ -52,7 +53,7 @@ app.post("/deactivate-account", async (ctx) => {
 /* @desc reactivate user account
    @route POST /api/admin/users/reactivate-account
    @access private (USER) */
-app.post("/reactivate-account", async (ctx) => {
+app.post("/reactivate-account", strictRateLimiter(), async (ctx) => {
     const user = ctx.get("user")!;
     await usersService.reactivateAccount(user.id);
 
@@ -103,7 +104,7 @@ app.get('/details/:id', async (ctx) => {
 /* @desc admin update user fields
    @route PATCH https://example.com/api/admin/users/admin-update/:id
    @access private (ADMIN, MANAGER) */
-app.patch('/admin-update/:id', async (ctx) => {
+app.patch('/admin-update/:id', strictRateLimiter(), async (ctx) => {
     const user = ctx.get("user")!;
 
     const body = await ctx.req.json();
@@ -132,7 +133,7 @@ app.patch('/admin-update/:id', async (ctx) => {
 /* @desc update user block status
    @route PATCH /api/admin/users/:id/block-status
    @access private (ADMIN) */
-app.patch('/block-status/:id', async (ctx) => {
+app.patch('/block-status/:id', strictRateLimiter(), async (ctx) => {
     const user = ctx.get("user")!;
     const role = user.role ?? "USER";
     const body = await ctx.req.json();
@@ -151,7 +152,7 @@ app.patch('/block-status/:id', async (ctx) => {
 /* @desc update user role
    @route PATCH /api/admin/users/:id/role
    @access private (ADMIN) */
-app.patch('/role/:id', async (ctx) => {
+app.patch('/role/:id', strictRateLimiter(), async (ctx) => {
     const user = ctx.get("user")!;
     const requesterRole = user.role ?? "USER";
 
@@ -170,7 +171,7 @@ app.patch('/role/:id', async (ctx) => {
 /* @desc admin permanently suspends a fraudulent account and releases CPF
    @route POST /api/admin/users/suspend-fraud/:id
    @access private (ADMIN) */
-app.post("/suspend-fraud/:id", async (ctx) => {
+app.post("/suspend-fraud/:id", strictRateLimiter(60 * 1000, 5), async (ctx) => {
     const user = ctx.get("user")!;
     const requesterRole = user.role ?? "USER";
     const targetUserId = ctx.req.param("id");

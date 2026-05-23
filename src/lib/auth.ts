@@ -97,10 +97,43 @@ const getTrustedOrigins = () => {
     return allowedOrigins;
 };
 
+const getTrustedIp = () => {
+    if (process.env.NODE_ENV !== "production") {
+        return ["x-forwarded-for"];
+    }
+    if (process.env.PROXY_CONNECTED === "cloudflare") {
+        return ["cf-connecting-ip"]
+    }
+    return ["x-forwarded-for"]; /* railway */
+};
+
 export const auth = betterAuth({
     database: prismaAdapter(prisma, {
         provider: "postgresql",
     }),
+    advanced: { 
+        ipAddress: { /* block to tell better auth rate-limiter which is the correct user IP */
+            ipAddressHeaders: getTrustedIp()
+        },
+        useSecureCookies: process.env.NODE_ENV === "production" /*  the browser will only send the cookie if the request is encrypted via HTTPS. This prevents session hijacking on public networks */
+    }, 
+    rateLimit: { /* this returns a error status === 429 and bypass errorHandler, must be catch on frontend 
+            if (response.status === 429) {
+                const retryAfter = response.headers.get("X-Retry-After");
+                console.log(`Rate limit exceeded. Retry after ${retryAfter} seconds`);
+            } */
+        enabled: true,
+        window: 60, 
+        max: 100, 
+        customRules: {
+            "/sign-in/email": { window: 60, max: 5 },
+            "/sign-up/email": { window: 300, max: 3 },
+            "/send-verification-email": { window: 300, max: 2 }, /* sends email, window should be big */
+            "/request-password-reset": { window: 300, max: 2 },  /* sends email, window should be big */
+            "/update-user": { window: 60, max: 10 },
+            "/magic-link/email": { window: 300, max: 3 }
+        }
+    },
     emailAndPassword: {
         enabled: true,
         requireEmailVerification: true,
@@ -309,7 +342,4 @@ export const auth = betterAuth({
     secret: process.env.BETTER_AUTH_SECRET,
     baseURL: process.env.BETTER_AUTH_URL,
     trustedOrigins: getTrustedOrigins(), /* allow next (port 3000) to access this provider */
-    advanced: {
-        useSecureCookies: process.env.NODE_ENV === "production"
-    }
 });

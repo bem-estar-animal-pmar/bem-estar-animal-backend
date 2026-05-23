@@ -4,6 +4,7 @@ import { termsMiddleware } from '../../middleware/termsHandler';
 import { HTTPException } from 'hono/http-exception';
 import { neuteringService } from "./neuterings.service";
 import { createNeuteringSchema, adminCreateNeuteringSchema, listNeuteringsQuerySchema, updateNeuteringStatusSchema, calendarQuerySchema, updateNeuteringLimitsSchema } from './neuterings.schema';
+import { strictRateLimiter } from '../../middleware/limitHandler';
 
 const app = new Hono<AuthEnv>();
 
@@ -13,7 +14,7 @@ app.use('*', termsMiddleware);
 /* @desc list current user's neutering appointments
    @route GET /api/neuterings/me
    @access private (USER, ADMIN) */
-app.get('/me', async (ctx) => {
+app.get('/me', strictRateLimiter(60 * 1000, 60), async (ctx) => {
     const user = ctx.get("user")!;
     const rawQuery = ctx.req.query();
     const validation = listNeuteringsQuerySchema.safeParse(rawQuery);
@@ -29,7 +30,7 @@ app.get('/me', async (ctx) => {
 /* @desc list all neutering appointments (with filters and pagination)
    @route GET /api/neuterings?page=1&limit=20
    @access private (ADMIN) */
-app.get('/', async (ctx) => {
+app.get('/', strictRateLimiter(60 * 1000, 60), async (ctx) => {
     const user = ctx.get("user")!;
     const role = user.role ?? "USER";
     const rawQuery = ctx.req.query();
@@ -46,7 +47,7 @@ app.get('/', async (ctx) => {
 /* @desc get a specific neutering details
    @route GET https://example.com/api/neuterings/details/:id
    @access private (USER, ADMIN) */
-app.get('/details/:id', async (ctx) => {
+app.get('/details/:id', strictRateLimiter(60 * 1000, 60), async (ctx) => {
     const user = ctx.get("user")!; /* authMiddle already make sure 'user' exists */
 
     const neuteringId = ctx.req.param('id');
@@ -60,7 +61,7 @@ app.get('/details/:id', async (ctx) => {
 /* @desc create a new neutering appointment
    @route POST /api/neuterings
    @access private (USER, ADMIN) */
-app.post('/', async (ctx) => {
+app.post('/', strictRateLimiter(60 * 1000, 5), async (ctx) => {
     const user = ctx.get("user")!;
 
     const body = await ctx.req.json();
@@ -78,7 +79,7 @@ app.post('/', async (ctx) => {
 /* @desc create a new neutering appointment as admin, usually for registering completed appointments
    @route POST /api/neuterings/admin-register
    @access private (ADMIN) */
-app.post('/admin-register', async (ctx) => {
+app.post('/admin-register', strictRateLimiter(60 * 1000, 10), async (ctx) => {
     const user = ctx.get("user")!;
 
     const body = await ctx.req.json();
@@ -96,7 +97,7 @@ app.post('/admin-register', async (ctx) => {
 /* @desc admin updates appointment status (can cancel) (or reschedules)
    @route PATCH /api/neutering/status/:id
    @access private (ADMIN) */
-app.patch('/status/:id', async (ctx) => {
+app.patch('/status/:id', strictRateLimiter(60 * 1000, 10), async (ctx) => {
     const user = ctx.get("user")!;
     const appointmentId = ctx.req.param('id');
 
@@ -114,7 +115,7 @@ app.patch('/status/:id', async (ctx) => {
 /* @desc user cancels their own appointment
    @route PATCH /api/neutering/:id/cancel
    @access private (USER) */
-app.patch('/cancel/:id', async (ctx) => {
+app.patch('/cancel/:id', strictRateLimiter(60 * 1000, 5), async (ctx) => {
     const user = ctx.get("user")!;
     const appointmentId = ctx.req.param('id');
 
@@ -127,7 +128,7 @@ app.patch('/cancel/:id', async (ctx) => {
 /* @desc get appointment counts for calendar distribution
    @route GET /api/neutering/calendar?startDate=2026-05-01&endDate=2026-05-31
    @access private (USER, ADMIN) */
-app.get('/calendar', async (ctx) => {
+app.get('/calendar', strictRateLimiter(60 * 1000, 30), async (ctx) => {
     const user = ctx.get("user")!;
 
     const rawQuery = ctx.req.query();
@@ -145,7 +146,7 @@ app.get('/calendar', async (ctx) => {
     return ctx.json(calendarData, 200);
 });
 
-app.patch('/quotas', async (ctx) => {
+app.patch('/quotas', strictRateLimiter(60 * 1000, 5), async (ctx) => {
     const user = ctx.get("user")!;
     const body = await ctx.req.json();
     const validation = updateNeuteringLimitsSchema.safeParse(body);
@@ -159,7 +160,7 @@ app.patch('/quotas', async (ctx) => {
 });
 
 
-app.get('/quotas', async (ctx) => {
+app.get('/quotas', strictRateLimiter(60 * 1000, 60), async (ctx) => {
     const quotas = await neuteringService.getQuotas();
     return ctx.json(quotas, 200);
 });
