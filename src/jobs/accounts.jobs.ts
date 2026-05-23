@@ -148,7 +148,7 @@ const anonymizeOldRecords = async () => {
 }
 
 /* "0 3 * * *" every day 06:00 UTC-0 */
-cron.schedule("* * * * *", 
+cron.schedule("0 6 * * *", 
     async () => {
         try {
             await hardDeleteInactiveUsers();
