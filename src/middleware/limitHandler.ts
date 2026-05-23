@@ -8,6 +8,7 @@ plataforms runs the app everytime someone access it and destroys seconds later. 
 
 import { rateLimiter } from "hono-rate-limiter";
 import { getConnInfo } from "hono/bun";
+import { HTTPException } from "hono/http-exception";
 import type { AuthEnv } from "./authHandler.js";
 import type { Context } from "hono";
 
@@ -51,6 +52,10 @@ export const globalRateLimiter = rateLimiter({
     },
 
     standardHeaders: true,
+
+    handler: () => {
+        throw new HTTPException(429, { message: "Too many requests. Please try again later." });
+    }
 });
 
 export const strictRateLimiter = (window: number = 60 * 1000, limit: number = 10) => rateLimiter<AuthEnv>({
@@ -66,6 +71,10 @@ export const strictRateLimiter = (window: number = 60 * 1000, limit: number = 10
         return getClientIp(c);
     },
     standardHeaders: true,
+
+    handler: () => {
+        throw new HTTPException(429, { message: "Too many requests. Please try again later." });
+    }
 });
 
 /*
