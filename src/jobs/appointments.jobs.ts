@@ -1,5 +1,6 @@
 import { prisma } from "../lib/prisma";
 import { MEDICAL_RECORDS_MAP } from "../constants/constants";
+import cron from "node-cron"
 
 let running = false;
 
@@ -68,7 +69,7 @@ const updateExpiredAppointments = async () => {
         const logEntry = `[${nowInBrazilShort}] Status alterado para "${statusString}" automaticamente pelo sistema (prazo expirado).`;
 
         /* do a list of prisma update promises */
-        const updatePromises: any[] = [];
+        const updatePromises = [];
 
         for (const appt of expiredNeuterings) {
             const newHistory = appt.medicalRecord?.history
@@ -121,5 +122,8 @@ const updateExpiredAppointments = async () => {
     }
 };
 
-setInterval(updateExpiredAppointments, 1000 * 60 * 5);
-updateExpiredAppointments();
+cron.schedule("*/5 * * * *",
+    async () => {
+        await updateExpiredAppointments();
+    }
+)
