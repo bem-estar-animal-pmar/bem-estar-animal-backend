@@ -1,6 +1,9 @@
 export const CURRENT_TERMS_OF_SERVICE_VERSION = "v1.0.0";
 export const CURRENT_PRIVACY_POLICY_VERSION = "v1.0.0";
 
+export const MAX_FILE_SIZE = 5 * 1024 * 1024;
+export const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+
 export const MIN_DAY_LIMIT_FOR_NEUTERING_REQUEST = 2;
 export const MAX_MONTH_LIMIT_FOR_NEUTERING_REQUEST = 3;
 export const MAX_DAY_LIMIT_FOR_USER_CANCEL_NEUTERING_REQUEST = 1;

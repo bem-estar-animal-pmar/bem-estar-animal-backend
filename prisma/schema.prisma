@@ -228,7 +228,8 @@ model Pet {
   coatColor         String             // color
   isNeutered        Boolean   @default(false)
   allowEmergency    Boolean   @default(false) /* field for admins to create pets and set to allow owners to request emergencies */
-  
+  image             String?
+
   ownerId           String
   owner             User               @relation(fields: [ownerId], references: [id])
 
