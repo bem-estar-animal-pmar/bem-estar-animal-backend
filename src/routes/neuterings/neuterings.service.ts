@@ -232,6 +232,7 @@ export const neuteringService = {
                         chip: true,
                         isNeutered: true,
                         allowEmergency: true,
+                        image: true
                     }
                 },
                 user: {
@@ -284,7 +285,7 @@ export const neuteringService = {
                 }
             },
             include: {
-                pet: { select: { name: true, species: true, gender: true, breed: true } },
+                pet: { select: { name: true, species: true, gender: true, breed: true, image: true} },
             },
             orderBy: [
                 { createdAt: 'desc' }
@@ -373,7 +374,7 @@ export const neuteringService = {
                 }
             },
             include: {
-                pet: { select: { name: true, species: true } },
+                pet: { select: { name: true, species: true, image: true } },
                 user: { select: { name: true, lastName: true, email: true, phone: true } }
             },
             orderBy: [

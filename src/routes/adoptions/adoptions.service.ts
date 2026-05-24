@@ -87,7 +87,7 @@ export const adoptionsService = {
                 status: filters?.status ? { in: filters.status } : undefined,
             },
             include: {
-                pet: { select: { id: true, name: true, species: true } }
+                pet: { select: { id: true, name: true, species: true, image: true } }
             },
             orderBy: { createdAt: 'desc' }
         });
@@ -110,7 +110,7 @@ export const adoptionsService = {
                 userId: filters.userId,
             },
             include: {
-                pet: { select: { name: true, species: true } },
+                pet: { select: { name: true, species: true, image: true } },
                 user: { select: { name: true, lastName: true, email: true, phone: true } }
             },
             orderBy: [
@@ -152,6 +152,7 @@ export const adoptionsService = {
                         chip: true,
                         isNeutered: true,
                         allowEmergency: true,
+                        image: true
                     }
                 },
                 user: {
@@ -424,7 +425,7 @@ export const adoptionsService = {
                 petId: filters.petId,
             },
             include: {
-                pet: { select: { name: true, species: true } },
+                pet: { select: { name: true, species: true, image: true } },
             },
             orderBy: [
                 { createdAt: 'desc' }, /* pending, awaiting_exams and cancelled has no date, so the oldest created comes first */
@@ -470,6 +471,7 @@ export const adoptionsService = {
                         chip: true,
                         isNeutered: true,
                         allowEmergency: true,
+                        image: true
                     }
                 }
             }

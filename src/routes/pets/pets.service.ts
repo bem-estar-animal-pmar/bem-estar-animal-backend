@@ -33,6 +33,7 @@ export const petsService = {
                 coatColor: true,
                 birthDate: true,
                 isNeutered: true,
+                image: true
                 /* we exclude ownerId, chip, createdAt, updatedAt, deletedAt from the result because
                 the returned data is meant just to be shown to public users */
             },

@@ -120,6 +120,7 @@ export const emergencyService = {
                         chip: true,
                         isNeutered: true,
                         allowEmergency: true,
+                        image: true
                     }
                 },
                 user: {
@@ -172,7 +173,7 @@ export const emergencyService = {
                 species: filters?.species,
             },
             include: {
-                pet: { select: { id: true, name: true, allowEmergency: true } } /* if it is a completed (or already have pet registered) appointment, we include the pet */
+                pet: { select: { id: true, name: true, allowEmergency: true, image: true } } /* if it is a completed (or already have pet registered) appointment, we include the pet */
             },
             orderBy: { createdAt: 'desc' } /* ordered by creation date because pending emergencies does not have scheduleDate */
         });
@@ -330,7 +331,7 @@ export const emergencyService = {
             },
             include: {
                 user: { select: { name: true, lastName: true, phone: true, email: true } },
-                pet: { select: { id: true, name: true,  allowEmergency: true } }
+                pet: { select: { id: true, name: true,  allowEmergency: true, image: true } }
             },
             orderBy: [
                 { scheduleDate: 'desc' }, /* most recent comes first (confirmed, completed and no_show) */
