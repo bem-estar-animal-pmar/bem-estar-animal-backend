@@ -4,7 +4,7 @@ import { auth } from "./lib/auth";
 import { errorMiddleware } from "./middleware/errorHandler";
 import { secureHeaders } from "hono/secure-headers";
 import { globalRateLimiter } from "./middleware/limitHandler";
-
+import { bodyLimit } from "hono/body-limit";
 import "./jobs/appointments.jobs"
 import "./jobs/accounts.jobs"
 
@@ -28,7 +28,14 @@ app.use('*', secureHeaders());
 
 const allowedOrigins = process.env.ALLOWED_CORS_URLS ? JSON.parse(process.env.ALLOWED_CORS_URLS) : ["http://localhost:3000"];
 
-// app.use("/api/*", globalRateLimiter);
+app.use("/api/*", globalRateLimiter);
+
+app.use("/api/*", bodyLimit({
+    maxSize: 6 * 1024 * 1024,
+    onError: (c) => {
+        return c.json({ error: "Payload Too Large. Maximum allowed size is 5MB." }, 413);
+    },
+}));
 
 app.use('*', cors({
     origin: (origin, c) => {
