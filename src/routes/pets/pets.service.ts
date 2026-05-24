@@ -252,6 +252,35 @@ export const petsService = {
         });
     },
 
+    async updateImage(petId: string, userId: string, userRole: string, imageUrl: string | null) {
+        const existingPet = await prisma.pet.findUnique({
+            where: { id: petId },
+            select: { ownerId: true, image: true, adoptionStatus: true }
+        });
+
+        if (!existingPet) {
+            throw new HTTPException(404, { message: "Pet not found" });
+        }
+
+        if (existingPet.ownerId !== userId && userRole !== "ADMIN" && userRole !== "MANAGER") {
+            throw new HTTPException(403, { message: "You do not have permission to perform this action" });
+        }
+
+        if (existingPet.adoptionStatus !== "NONE" && userRole === "USER") {
+            throw new HTTPException(403, { message: "You cannot update data when a pet is for adoption or adopted" });
+        }
+        
+        const updatedPet = await prisma.pet.update({
+            where: { id: petId },
+            data: { image: imageUrl }
+        });
+
+        return {
+            updatedPet,
+            oldImage: existingPet.image
+        };
+    },
+
     /* admin only services */
 
     /* admins are allowed to create pets for other users */

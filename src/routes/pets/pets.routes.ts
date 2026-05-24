@@ -3,8 +3,10 @@ import { authMiddleware, type AuthEnv } from '../../middleware/authHandler';
 import { termsMiddleware } from '../../middleware/termsHandler';
 import { HTTPException } from 'hono/http-exception';
 import { petsService } from "./pets.service";
-import { createPetSchema, adminCreatePetSchema, listPetsQuerySchema, adminUpdatePetSchema, listPetsForAdoptionQuerySchema } from './pets.schema';
+import { createPetSchema, adminCreatePetSchema, listPetsQuerySchema, adminUpdatePetSchema, listPetsForAdoptionQuerySchema, updatePetImageSchema } from './pets.schema';
 import { strictRateLimiter } from '../../middleware/limitHandler';
+import { uploadPhoto, deletePhoto } from '../../lib/s3.client';
+import { prisma } from "../../lib/prisma.js";
 
 const app = new Hono<AuthEnv>()
 
@@ -105,16 +107,90 @@ app.get('/details/:id', strictRateLimiter(60 * 1000, 60), async (ctx) => {
 app.post('/', strictRateLimiter(60 * 1000, 5), async (ctx) => {
 	const user = ctx.get("user")!;
 
-	const body = await ctx.req.json();
+	const body = await ctx.req.parseBody();
 	const validation = createPetSchema.safeParse(body);
 
 	if (!validation.success) {
 		throw new HTTPException(400, {  message: "Invalid body", cause: validation.error })
     }
 
-	const newPet = await petsService.create(user.id, validation.data);
+    const { image, ...petData } = validation.data;
+
+	const photoUrl = await uploadPhoto(image, "pets")
+
+	const newPet = await petsService.create(user.id, {
+		...petData,
+		image: photoUrl
+	});
+
 	return ctx.json(newPet, 201);
 })
+
+/* @desc update a pet's image
+   @route PATCH https://example.com/api/pets/:id/image
+   @access private (USER, ADMIN) */
+app.patch('/:id/image', strictRateLimiter(60 * 1000, 5), async (ctx) => {
+    const user = ctx.get("user")!;
+    const petId = ctx.req.param('id');
+    const role = user.role ?? "USER";
+
+    const body = await ctx.req.parseBody();
+    const validation = updatePetImageSchema.safeParse(body);
+
+    if (!validation.success) {
+        throw new HTTPException(400, { message: "Invalid body", cause: validation.error });
+    }
+
+    const existingPet = await prisma.pet.findUnique({
+        where: { id: petId },
+        select: { ownerId: true, image: true, adoptionStatus: true }
+    });
+
+    if (!existingPet) {
+        throw new HTTPException(404, { message: "Pet not found" });
+    }
+
+    if (existingPet.ownerId !== user.id && user.role !== "ADMIN" && user.role !== "MANAGER") {
+        throw new HTTPException(403, { message: "You do not have permission to perform this action" });
+    }
+
+    if (existingPet.adoptionStatus !== "NONE" && user.role === "USER") {
+        throw new HTTPException(403, { message: "You cannot update data when a pet is for adoption or adopted" });
+    }
+
+    /* upload the new photo to R2 */
+    const newPhotoUrl = await uploadPhoto(validation.data.image, "pets");
+
+    /* update DB and get the old image URL */
+    const { updatedPet, oldImage } = await petsService.updateImage(petId, user.id, role, newPhotoUrl);
+
+    /* clean up the old photo from R2 if it exists */
+    if (oldImage) {
+        await deletePhoto(oldImage).catch(); /* catch error to prevent sending error to the frontend if the upload was succesfull */
+    }
+
+    return ctx.json(updatedPet, 200);
+});
+
+/* @desc remove a pet's image entirely
+   @route DELETE https://example.com/api/pets/:id/image
+   @access private (USER, ADMIN) */
+app.delete('/:id/image', strictRateLimiter(60 * 1000, 5), async (ctx) => {
+    const user = ctx.get("user")!;
+    const petId = ctx.req.param('id');
+    const role = user.role ?? "USER";
+
+    /* set image to null in the DB and get the old image URL */
+    const { updatedPet, oldImage } = await petsService.updateImage(petId, user.id, role, null);
+
+    if (!oldImage) {
+        throw new HTTPException(400, { message: "Pet does not currently have an image" });
+    }
+
+    await deletePhoto(oldImage);
+
+    return ctx.json({ message: "Image successfully removed" }, 200);
+});
 
 /* @desc admin create a new pet for user, skipping any limit rules
    @route POST https://example.com/api/pets/admin/create-after-emergency
@@ -122,17 +198,28 @@ app.post('/', strictRateLimiter(60 * 1000, 5), async (ctx) => {
 app.post('/admin/create-after-emergency', strictRateLimiter(60 * 1000, 10), async (ctx) => {
 	const user = ctx.get("user")!;
 
-	const body = await ctx.req.json();
+	const body = await ctx.req.parseBody();
 	const validation = adminCreatePetSchema.safeParse(body);
 
 	if (!validation.success) {
 		throw new HTTPException(400, {  message: "Invalid body", cause: validation.error })
     }
 
-	const role = user.role ?? "USER"; 
-	const targetUserId = validation.data.ownerId || user.id;
+    const { image, ownerId, ...petData } = validation.data;
 
-	const newPet = await petsService.CreateAfterEmergencyByAdmin(targetUserId, role, validation.data);
+	let photoUrl: string | undefined = undefined;
+
+	if (image) {
+		photoUrl = await uploadPhoto(image, "pets");
+	}
+
+	const role = user.role ?? "USER"; 
+	const targetUserId = ownerId || user.id;
+
+	const newPet = await petsService.CreateAfterEmergencyByAdmin(targetUserId, role, {
+		...petData,
+		...(photoUrl && { image: photoUrl })
+	});
 	return ctx.json(newPet, 201);
 })
 

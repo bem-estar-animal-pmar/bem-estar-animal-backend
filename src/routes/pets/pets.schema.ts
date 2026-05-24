@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { PetBreed } from "../../../generated/prisma/enums";
+import { ACCEPTED_IMAGE_TYPES, MAX_FILE_SIZE } from "../../constants/constants"
 
 const checkDogBreed = (breed: PetBreed) => {
     return ![ "ABYSSINIAN", "ANGORA", "BENGAL", "BIRMAN", "CHARTREUX", "RUSSIAN_BLUE", "HIMALAYAN", "MAINE_COON", "MUNCHKIN", "SPHYNX", "SIAMESE", "RAGDOLL", "SCOTTISH_FOLD", "AMERICAN_BURMESE", "PERSIAN", "EXOTIC_SHORTHAIR"
@@ -18,7 +19,7 @@ const basePetSchema = z.object({
     species: z.enum(["DOG", "CAT"]),
     gender: z.enum(["MALE", "FEMALE"]),
     breed: z.enum(PetBreed),
-    weight: z.number()
+    weight: z.coerce.number()
         .positive("Weight must be greater than zero"),
     size: z.enum(["SMALL", "MEDIUM", "LARGE"]),
     coatColor: z.string()
@@ -45,7 +46,13 @@ export const createPetSchema = basePetSchema.extend({
     homeStatus: z.enum([
         "HAS_OWNER",
         "TEMPORARY_HOME",
-    ]).optional()
+    ]).optional(),
+    image: z.instanceof(File, { message: "Photo is required" })
+        .refine((file) => file.size <= MAX_FILE_SIZE, `File size must be less than 5MB`)
+        .refine(
+            (file) => ACCEPTED_IMAGE_TYPES.includes(file.type),
+            "Only .jpg, .jpeg, .png and .webp formats are supported"
+        ),
 }).refine(breedRefinement, breedRefinementMessage);
 
 export const adminCreatePetSchema = basePetSchema.extend({
@@ -63,7 +70,23 @@ export const adminCreatePetSchema = basePetSchema.extend({
         .optional(),
     allowEmergency: z.coerce.boolean()
         .optional(),
+    image: z.instanceof(File, { message: "Photo is required" })
+        .refine((file) => file.size <= MAX_FILE_SIZE, `File size must be less than 5MB`)
+        .refine(
+            (file) => ACCEPTED_IMAGE_TYPES.includes(file.type),
+            "Only .jpg, .jpeg, .png and .webp formats are supported"
+        )
+        .optional(),
 }).refine(breedRefinement, breedRefinementMessage);
+
+export const updatePetImageSchema = z.object({
+    image: z.instanceof(File, { message: "Photo is required" })
+        .refine((file) => file.size <= MAX_FILE_SIZE, `File size must be less than 5MB`)
+        .refine(
+            (file) => ACCEPTED_IMAGE_TYPES.includes(file.type),
+            "Only .jpg, .jpeg, .png and .webp formats are supported"
+        ),
+});
 
 export const adminUpdatePetSchema = z.object({
     name: z.string()
@@ -146,8 +169,16 @@ export const listPetsForAdoptionQuerySchema = z.object({
     gender: z.enum(["MALE", "FEMALE"]).optional(),
 });
 
-export type CreatePetInput = z.infer<typeof createPetSchema>;
-export type AdminCreatePetInput = z.infer<typeof adminCreatePetSchema>;
+
+export type CreatePetFormInput = z.infer<typeof createPetSchema>;
+export type CreatePetInput = Omit<CreatePetFormInput, "image"> & {
+    image: string;
+};
+export type AdminCreatePetFormInput = z.infer<typeof adminCreatePetSchema>;
+export type AdminCreatePetInput = Omit<AdminCreatePetFormInput, "image"> & {
+    image?: string;
+};
+
 export type AdminUpdatePetInput = z.infer<typeof adminUpdatePetSchema>;
 export type ListPetsParamsInput = z.infer<typeof listPetsQuerySchema>;
 export type ListPetsForAdoptionParamsInput = z.infer<typeof listPetsForAdoptionQuerySchema>;
