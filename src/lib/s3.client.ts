@@ -3,7 +3,6 @@ import { HTTPException } from "hono/http-exception";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { verifyImageSignature } from "./file-validator";
-import sharp from 'sharp';
 
 if (!process.env.R2_ENDPOINT || !process.env.R2_ACCESS_KEY_ID || !process.env.R2_SECRET_ACCESS_KEY) {
     console.warn("Missing R2 environment variables. File uploads will fail.");
