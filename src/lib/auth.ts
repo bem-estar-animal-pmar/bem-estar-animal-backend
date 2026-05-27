@@ -1,13 +1,12 @@
 import { betterAuth } from "better-auth";
-
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { prisma } from "./prisma.js";
-
 import { APIError } from "better-auth";
 import { createAuthMiddleware } from "better-auth/api";
 import { z } from "zod";
 import { cpf } from "cpf-cnpj-validator";
 import { CURRENT_PRIVACY_POLICY_VERSION, CURRENT_TERMS_OF_SERVICE_VERSION } from "../constants/constants.js";
+import { sendPasswordReset, sendVerification } from "./resend.email.js";
 
 export const userRegisterSchema = z.object({
     password: z.string().trim()
@@ -30,7 +29,7 @@ export const userRegisterSchema = z.object({
         .transform((value) => value.replace(/\D/g, "")), // remove dots and dashes to send only numbers to backend
     cpf: z.string().trim()
         .refine((value) => cpf.isValid(value), {
-            message: "Invalid CPF",
+        message: "Invalid CPF",
         })
         .transform((val) => val.replace(/\D/g, "")), // remove dots and dashes to send only numbers to backend
     cep: z.string()
@@ -65,7 +64,7 @@ export const userUpdateSchema = z.object({
         .transform((value) => value.replace(/\D/g, "")), // remove dots and dashes to send only numbers to backend
     cpf: z.string().trim()
         .refine((value) => cpf.isValid(value), {
-            message: "Invalid CPF",
+        message: "Invalid CPF",
         })
         .transform((val) => val.replace(/\D/g, "")), // remove dots and dashes to send only numbers to backend
     cep: z.string()
@@ -84,14 +83,12 @@ export const passwordUpdateSchema = z.object({
     token: z.string().trim()
         .min(1, "Token can't be blank")
         .max(200, "Token is expected to have less than 200 characters"),
-
-
 });
 
 const allowedOrigins = process.env.ALLOWED_CORS_URLS ? JSON.parse(process.env.ALLOWED_CORS_URLS) : ["http://localhost:3000"];
 
 const getTrustedOrigins = () => {
-    if (process.env.NODE_ENV !== "production") {
+    if (process.env.NODE_ENV !== "production" && !process.env.ALLOWED_CORS_URLS) {
         return ["http://localhost:3000"];
     }
     return allowedOrigins;
@@ -113,230 +110,228 @@ export const auth = betterAuth({
     }),
     advanced: { 
         ipAddress: { /* block to tell better auth rate-limiter which is the correct user IP */
-            ipAddressHeaders: getTrustedIp()
+        ipAddressHeaders: getTrustedIp()
         },
-        useSecureCookies: process.env.NODE_ENV === "production" /*  the browser will only send the cookie if the request is encrypted via HTTPS. This prevents session hijacking on public networks */
+        useSecureCookies: process.env.NODE_ENV === "production" /* the browser will only send the cookie if the request is encrypted via HTTPS. This prevents session hijacking on public networks */
     }, 
-    rateLimit: { /* this returns a error status === 429 and bypass errorHandler, must be catch on frontend 
-            if (response.status === 429) {
-                const retryAfter = response.headers.get("X-Retry-After");
-                console.log(`Rate limit exceeded. Retry after ${retryAfter} seconds`);
-            } */
+    rateLimit: { /* this returns a error status === 429 and bypass errorHandler, must be catch on frontend  
+        if (response.status === 429) {
+            const retryAfter = response.headers.get("X-Retry-After");
+            console.log(`Rate limit exceeded. Retry after ${retryAfter} seconds`);
+        } */
         enabled: true,
         window: 60, 
         max: 100, 
         customRules: {
-            "/sign-in/email": { window: 60, max: 5 },
-            "/sign-up/email": { window: 300, max: 3 },
-            "/send-verification-email": { window: 300, max: 2 }, /* sends email, window should be big */
-            "/request-password-reset": { window: 300, max: 2 },  /* sends email, window should be big */
-            "/update-user": { window: 60, max: 10 },
-            "/magic-link/email": { window: 300, max: 3 }
+        "/sign-in/email": { window: 60, max: 5 },
+        "/sign-up/email": { window: 300, max: 3 },
+        "/send-verification-email": { window: 300, max: 2 }, /* sends email, window should be big */
+        "/request-password-reset": { window: 300, max: 2 },  /* sends email, window should be big */
+        "/update-user": { window: 60, max: 10 },
+        "/magic-link/email": { window: 300, max: 3 }
         }
     },
     emailAndPassword: {
         enabled: true,
         requireEmailVerification: true,
         sendResetPassword: async ({user, url, token}, request) => {
-            /* should update here later to an e-mail provider to send the verification url to the user */
-            console.log(`Verification URL: ${url}`);
+        console.log(url)
+        await sendPasswordReset(user.email, url);
         },
     },
     emailVerification: {
         sendOnSignUp: true, /* when register, it will automatically send an email */
         autoSignInAfterVerification: true,/* user sign in after verification */
         sendVerificationEmail: async ({ user, url, token }, request) => {
-            /* here is where we should add an e-mail provider to send a mail with the
-            verification url to the user, for now, we just log on the console */
-            console.log(url)
+        await sendVerification(user.email, url);
         }
     },
     user: {
         additionalFields: {
-            role: {
-                type: "string",
-                required: false,
-                defaultValue: "USER",
-                input: false, /* never let the frontend set its own role */
-            },
-            lastName: {
-                type: "string",
-                required: true, /* enforces validation before hitting the DB */
-                input: true,    /* allows this field to be passed from the signUp client */
-                returned: false
-            },
-            phone: {
-                type: "string",
-                required: true,
-                input: true,
-                returned: false
-            },
-            cpf: {
-                type: "string",
-                required: true,
-                input: true,
-                returned: false
-            },
-            cep: {
-                type: "string",
-                required: true,
-                input: true,
-                returned: false
-            },
-            street: {
-                type: "string",
-                required: true,
-                input: true,
-                returned: false
-            },
-            neighborhood: {
-                type: "string",
-                required: true,
-                input: true,
-                returned: false
-            },
-            city: {
-                type: "string",
-                required: true,
-                input: true,
-                returned: false
-            },
-            state: {
-                type: "string",
-                required: true,
-                input: true,
-                returned: false
-            },
-            number: {
-                type: "string",
-                required: true,
-                input: true,
-                returned: false
-            },
-            history: {
-                type: "string",
-                required: false,
-                input: false, /* Set automatically by DB or server, not frontend */
-                returned: false
-            },
-            termsAcceptedAt: {
-                type: "date",
-                required: false,
-                input: false, /* Set automatically by DB or server, not frontend */
-                returned: true
-            },
-            termsVersion: { 
-                type: "string", 
-                required: false, 
-                input: true, /* input must be true because we inject this field on the before hook, even being true, our 
-                    zod schema prevents user from sending it from the client */ 
-                returned: true 
-            },
-            privacyAcceptedAt: {
-                type: "date",
-                required: false,
-                input: false, /* Set automatically by DB or server, not frontend */
-                returned: true
-            },
-            privacyVersion: { 
-                type: "string", 
-                required: false, 
-                input: true, /* input must be true because we inject this field on the before hook, even being true, our 
-                    zod schema prevents user from sending it from the client */ 
-                returned: true 
-            },
-            blockedUntil: {
-                type: "date",
-                required: false,
-                input: false,     /* user nor admin can set blockedUntil, it automatically goes to true if a status is NO_SHOW */
-                returned: false
-            },
-            deletedAt: {
-                type: "date",
-                required: false,
-                input: false,
-                returned: true
-            }
+        role: {
+            type: "string",
+            required: false,
+            defaultValue: "USER",
+            input: false, /* never let the frontend set its own role */
+        },
+        lastName: {
+            type: "string",
+            required: true, /* enforces validation before hitting the DB */
+            input: true,    /* allows this field to be passed from the signUp client */
+            returned: false
+        },
+        phone: {
+            type: "string",
+            required: true,
+            input: true,
+            returned: false
+        },
+        cpf: {
+            type: "string",
+            required: true,
+            input: true,
+            returned: false
+        },
+        cep: {
+            type: "string",
+            required: true,
+            input: true,
+            returned: false
+        },
+        street: {
+            type: "string",
+            required: true,
+            input: true,
+            returned: false
+        },
+        neighborhood: {
+            type: "string",
+            required: true,
+            input: true,
+            returned: false
+        },
+        city: {
+            type: "string",
+            required: true,
+            input: true,
+            returned: false
+        },
+        state: {
+            type: "string",
+            required: true,
+            input: true,
+            returned: false
+        },
+        number: {
+            type: "string",
+            required: true,
+            input: true,
+            returned: false
+        },
+        history: {
+            type: "string",
+            required: false,
+            input: false, /* Set automatically by DB or server, not frontend */
+            returned: false
+        },
+        termsAcceptedAt: {
+            type: "date",
+            required: false,
+            input: false, /* Set automatically by DB or server, not frontend */
+            returned: true
+        },
+        termsVersion: { 
+            type: "string", 
+            required: false, 
+            input: true, /* input must be true because we inject this field on the before hook, even being true, our 
+            zod schema prevents user from sending it from the client */ 
+            returned: true 
+        },
+        privacyAcceptedAt: {
+            type: "date",
+            required: false,
+            input: false, /* Set automatically by DB or server, not frontend */
+            returned: true
+        },
+        privacyVersion: { 
+            type: "string", 
+            required: false, 
+            input: true, /* input must be true because we inject this field on the before hook, even being true, our 
+            zod schema prevents user from sending it from the client */ 
+            returned: true 
+        },
+        blockedUntil: {
+            type: "date",
+            required: false,
+            input: false,     /* user nor admin can set blockedUntil, it automatically goes to true if a status is NO_SHOW */
+            returned: false
+        },
+        deletedAt: {
+            type: "date",
+            required: false,
+            input: false,
+            returned: true
+        }
         }
     },
     hooks: {
         before: createAuthMiddleware(async (ctx) => {
-            if (ctx.path === "/sign-up/email") { /* this guarantees this middleware only runs on register by e-mail route */
-                const body = ctx.body;
-                const validation = userRegisterSchema.safeParse(body);
-                if (!validation.success) {
-                    throw new APIError("BAD_REQUEST", {
-                        message: validation.error.issues[0].message
-                    });
-                }
-
-                /* since our cpf field is unique, we must check if there is already an user registered with it to
-                throw an error and send a response to the frontend, if you don't do that, a generic error will be sent
-                and the front will have no clue what is the problem */
-                const existingUser = await prisma.user.findUnique({
-                    where: { cpf: validation.data.cpf },
-                });
-
-                if (existingUser) {
-                    throw new APIError("BAD_REQUEST", {
-                        message: "This CPF already exists",
-                    });
-                }
-
-                return {
-                    context: {
-                        ...ctx,
-                        body: {
-                            ...ctx.body,
-                            ...validation.data,
-                            image: "", /* for now we won't allow users set image urls */
-                            termsVersion: CURRENT_TERMS_OF_SERVICE_VERSION,
-                            privacyVersion: CURRENT_PRIVACY_POLICY_VERSION
-                        },
-                    }
-                };
-            }
-           
-            if (ctx.path === "/reset-password") { /* this is for the new reset password route, we should parse the same password rules here */
-                const body = ctx.body;
-                const validation = passwordUpdateSchema.safeParse(body);
-                if (!validation.success) {
-                    throw new APIError("BAD_REQUEST", {
-                        message: validation.error.issues[0].message
-                    });
-                }
+        if (ctx.path === "/sign-up/email") { /* this guarantees this middleware only runs on register by e-mail route */
+            const body = ctx.body;
+            const validation = userRegisterSchema.safeParse(body);
+            if (!validation.success) {
+            throw new APIError("BAD_REQUEST", {
+                message: validation.error.issues[0].message
+            });
             }
 
-            if (ctx.path === "/delete-user") {
-                throw new APIError("BAD_REQUEST", {
-                    message: "Use account deletion request flow"
-                });
+            /* since our cpf field is unique, we must check if there is already an user registered with it to
+            throw an error and send a response to the frontend, if you don't do that, a generic error will be sent
+            and the front will have no clue what is the problem */
+            const existingUser = await prisma.user.findUnique({
+            where: { cpf: validation.data.cpf },
+            });
+
+            if (existingUser) {
+            throw new APIError("BAD_REQUEST", {
+                message: "This CPF already exists",
+            });
             }
 
-            if (ctx.path === "/update-user") { /* this guarantees this middleware only runs when user tries to udpate their data */
-                const body = ctx.body;
-                const validation = userUpdateSchema.partial().safeParse(body);
+            return {
+            context: {
+                ...ctx,
+                body: {
+                ...ctx.body,
+                ...validation.data,
+                image: "", /* for now we won't allow users set image urls */
+                termsVersion: CURRENT_TERMS_OF_SERVICE_VERSION,
+                privacyVersion: CURRENT_PRIVACY_POLICY_VERSION
+                },
+            }
+            };
+        }
+        
+        if (ctx.path === "/reset-password") { /* this is for the new reset password route, we should parse the same password rules here */
+            const body = ctx.body;
+            const validation = passwordUpdateSchema.safeParse(body);
+            if (!validation.success) {
+            throw new APIError("BAD_REQUEST", {
+                message: validation.error.issues[0].message
+            });
+            }
+        }
 
-                throw new APIError("BAD_REQUEST", {
-                    message: "Unauthorized"
-                });
-                /*
-                if (!validation.success) {
-                    throw new APIError("BAD_REQUEST", {
-                        message: validation.error.issues[0].message
-                    });
+        if (ctx.path === "/delete-user") {
+            throw new APIError("BAD_REQUEST", {
+            message: "Use account deletion request flow"
+            });
+        }
+
+        if (ctx.path === "/update-user") { /* this guarantees this middleware only runs when user tries to udpate their data */
+            const body = ctx.body;
+            const validation = userUpdateSchema.partial().safeParse(body);
+
+            throw new APIError("BAD_REQUEST", {
+            message: "Unauthorized"
+            });
+            /*
+            if (!validation.success) {
+            throw new APIError("BAD_REQUEST", {
+                message: validation.error.issues[0].message
+            });
+            }
+            return {
+            context: {
+                ...ctx,
+                body: {
+                ...ctx.body,
+                ...validation.data,
+                image: "", // for now we won't allow users set image urls 
                 }
-                return {
-                    context: {
-                        ...ctx,
-                        body: {
-                            ...ctx.body,
-                            ...validation.data,
-                            image: "", // for now we won't allow users set image urls 
-                        }
-                    }
-                }; */
             }
+            }; */
+        }
         })
     },
     secret: process.env.BETTER_AUTH_SECRET,
