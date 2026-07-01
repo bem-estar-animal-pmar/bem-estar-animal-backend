@@ -51,7 +51,10 @@ export const createAdoptionSchema = z.object({
         .length(2, "State must be UF (2 characters)"),
     adopterNumber: z.string().trim()
         .min(1, "Number is required")
-        .max(16, "Number is expected to have less than 16 characters")
+        .max(16, "Number is expected to have less than 16 characters"),
+    termsAccepted: z.coerce.boolean().refine(val => val === true, {
+        message: "You must agree that you have read the neutering terms"
+    }),
 });
 
 export const updateAdoptionStatusSchema = z.object({
