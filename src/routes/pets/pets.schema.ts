@@ -52,7 +52,7 @@ export const createPetSchema = basePetSchema.extend({
         .refine(
             (file) => ACCEPTED_IMAGE_TYPES.includes(file.type),
             "Only .jpg, .jpeg, .png and .webp formats are supported"
-        ),
+        ).optional(),
 }).refine(breedRefinement, breedRefinementMessage);
 
 export const adminCreatePetSchema = basePetSchema.extend({
@@ -172,7 +172,7 @@ export const listPetsForAdoptionQuerySchema = z.object({
 
 export type CreatePetFormInput = z.infer<typeof createPetSchema>;
 export type CreatePetInput = Omit<CreatePetFormInput, "image"> & {
-    image: string;
+    image?: string;
 };
 export type AdminCreatePetFormInput = z.infer<typeof adminCreatePetSchema>;
 export type AdminCreatePetInput = Omit<AdminCreatePetFormInput, "image"> & {

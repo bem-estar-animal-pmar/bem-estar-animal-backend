@@ -116,11 +116,15 @@ app.post('/', strictRateLimiter(60 * 1000, 5), async (ctx) => {
 
     const { image, ...petData } = validation.data;
 
-	const photoUrl = await uploadPhoto(image, "pets")
+	let photoUrl: string | undefined = undefined;
+
+	if (image) {
+		photoUrl = await uploadPhoto(image, "pets");
+	}
 
 	const newPet = await petsService.create(user.id, {
 		...petData,
-		image: photoUrl
+		...(photoUrl && { image: photoUrl })
 	});
 
 	return ctx.json(newPet, 201);
