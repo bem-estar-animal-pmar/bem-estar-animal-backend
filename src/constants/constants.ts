@@ -15,7 +15,7 @@ export const MAX_PET_AGE_FOR_NEUTERING = 96; /* 8 years */
 
 /* female dogs only */
 export const MIN_PET_WEIGHT_FOR_NEUTERING = 3; /* in kg */
-export const MAX_PET_WEIGHT_FOR_NEUTERING = 15;
+export const MAX_PET_WEIGHT_FOR_NEUTERING = 20;
 
 export const NEUTERING_QUOTAS = {
     WEEKDAY: { /* segunda à quinta */
