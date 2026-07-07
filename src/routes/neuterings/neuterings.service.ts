@@ -1,7 +1,14 @@
 
 import { prisma } from "../../lib/prisma.js";
 import { HTTPException } from "hono/http-exception";
-import type { CreateNeuteringInput, AdminCreateNeuteringInput, UpdateNeuteringStatusInput, ListNeuteringsQueryInput, UpdateNeuteringLimitsInput } from "./neuterings.schema";
+import type { 
+    CreateNeuteringInput, 
+    AdminCreateNeuteringInput, 
+    UpdateNeuteringStatusInput, 
+    ListNeuteringsQueryInput, 
+    UpsertMonthQuotaInput,
+    UpsertDayExceptionInput
+} from "./neuterings.schema";
 import {
     MAX_DAY_LIMIT_FOR_USER_CANCEL_NEUTERING_REQUEST,
     MIN_PET_AGE_FOR_NEUTERING, MAX_PET_AGE_FOR_NEUTERING,
@@ -46,7 +53,6 @@ export const neuteringService = {
             throw new HTTPException(400, { message: "This pet is adopted, which means you cannot schedule neuterings anymore. Pet data is for read only now." });
         }
 
-        /* pets with active neutering appointments or already neutered cannot create another request */
         const activeAppointment = await prisma.neuteringAppointment.findFirst({
             where: {
                 petId: data.petId,
@@ -64,7 +70,6 @@ export const neuteringService = {
             throw new HTTPException(400, { message: "You must agree with all terms and declarations" });
         }
 
-        /* constraint: only pets between 3 months and 8 years can be neutered */
         const today = new Date();
         let ageInMonths = (today.getFullYear() - pet.birthDate.getFullYear()) * 12 + (today.getMonth() - pet.birthDate.getMonth());
         if (today.getDate() < pet.birthDate.getDate()) {
@@ -75,7 +80,6 @@ export const neuteringService = {
             throw new HTTPException(400, { message: "Neutering is only allowed for pets between 3 months and 8 years old" });
         }
 
-        /* constraint: pets below 3 kg or above 15 kg must do exams */
         let neuteringStatus:'CONFIRMED' | 'AWAITING_EXAMS' = "CONFIRMED";
 
         if (pet.species === "DOG" && pet.gender === "FEMALE") {
@@ -84,7 +88,6 @@ export const neuteringService = {
             }
         }
 
-        /* constraint: brachycephalic pets must do exams and date is deleted */
         const isBrachycephalic = pet.breed && BRACHYCEPHALIC_BREEDS.includes(pet.breed);
         
         if (isBrachycephalic) {
@@ -93,7 +96,6 @@ export const neuteringService = {
             data.period = undefined;
         }
 
-        /* constraint: if user is not an admin and animal is not brachycephalic, date and period are mandatory */
         if (!isBrachycephalic) {
             if (!data.scheduleDate || !data.period) {
                 throw new HTTPException(400, { message: "Schedule date and period are required for this pet" });
@@ -103,12 +105,10 @@ export const neuteringService = {
         const creator = `pelo responsável`;
         const initialHistory = `Pedido criado com status "${MEDICAL_RECORDS_MAP[neuteringStatus]}" ${creator}.`
 
-        /* rule 1: if user is blocked by NO_SHOW, don't allow the request */
         if (user.blockedUntil && user.blockedUntil > new Date()) {
             throw new HTTPException(403, {message: `User is blocked from scheduling until ${user.blockedUntil.toLocaleDateString()}`});
         }
 
-        /* rule 2: monthly limit of MAX_PETS_PER_MONTH_BY_CPF appointments per CPF */
         const nowInBrazil = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
         const startOfMonth = new Date(Date.UTC(nowInBrazil.getFullYear(), nowInBrazil.getMonth(), 1));
         const endOfMonth = new Date(Date.UTC(nowInBrazil.getFullYear(), nowInBrazil.getMonth() + 1, 0));
@@ -142,7 +142,6 @@ export const neuteringService = {
             });
         }
 
-        /* if it is here, pet is not brachycephalic (must have date) or user is not an admin */
         if (data.scheduleDate) {
             const todayInUtc = new Date(Date.UTC(nowInBrazil.getFullYear(), nowInBrazil.getMonth(), nowInBrazil.getDate()));
 
@@ -160,13 +159,11 @@ export const neuteringService = {
                 throw new HTTPException(400, { message: `Appointments must be scheduled at maximum ${MAX_MONTH_LIMIT_FOR_NEUTERING_REQUEST} months after today` });
             }
 
-            /* neutering quotas constraint */
-            const dayOfWeek = data.scheduleDate.getUTCDay(); /* 0 = Sunday, 1 = Monday 5 = Friday */
+            const dayOfWeek = data.scheduleDate.getUTCDay(); 
             const isFriday = dayOfWeek === 5;
             const isWeekday = dayOfWeek > 0 && dayOfWeek < 5;
             const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 
-            /* no appointment allowed on weekends */
             if (isWeekend) {
                 throw new HTTPException(400, { message: "Neutering is only available from monday to friday" });
             }
@@ -175,27 +172,27 @@ export const neuteringService = {
                 if (pet.gender !== "MALE") {
                     throw new HTTPException(400, { message: "Fridays are reserved for male animals only" });
                 }
-                const quota = data.period === "MORNING" ? NEUTERING_QUOTAS.FRIDAY.MORNING : NEUTERING_QUOTAS.FRIDAY.AFTERNOON;
+                const staticSpeciesRule = data.period === "MORNING" ? NEUTERING_QUOTAS.FRIDAY.MORNING : NEUTERING_QUOTAS.FRIDAY.AFTERNOON;
 
-                if (data.period === "MORNING" && pet.species !== quota.species) {
+                if (data.period === "MORNING" && pet.species !== staticSpeciesRule.species) {
                     throw new HTTPException(400, { message: "Friday morning is for cats only" });
                 }
 
-                if (data.period === "AFTERNOON" && pet.species !== quota.species) {
+                if (data.period === "AFTERNOON" && pet.species !== staticSpeciesRule.species) {
                     throw new HTTPException(400, { message: "Friday afternoon is for dogs only" });
                 }
 
-                await this.checkSlotAvailability(data.scheduleDate, data.period!, quota.limit);
+                await this.checkSlotAvailability(data.scheduleDate, data.period!);
             } 
 
             if (isWeekday) {
-                const quota = data.period === "MORNING" ? NEUTERING_QUOTAS.WEEKDAY.MORNING : NEUTERING_QUOTAS.WEEKDAY.AFTERNOON;
+                const staticSpeciesRule = data.period === "MORNING" ? NEUTERING_QUOTAS.WEEKDAY.MORNING : NEUTERING_QUOTAS.WEEKDAY.AFTERNOON;
                 
-                if (pet.species !== quota.species) {
-                    throw new HTTPException(400, { message: `Only ${quota.species.toLowerCase()}s can be neutered in the ${data.period!.toLowerCase()}` });
+                if (pet.species !== staticSpeciesRule.species) {
+                    throw new HTTPException(400, { message: `Only ${staticSpeciesRule.species.toLowerCase()}s can be neutered in the ${data.period!.toLowerCase()}` });
                 }
 
-                await this.checkSlotAvailability(data.scheduleDate, data.period!, quota.limit);
+                await this.checkSlotAvailability(data.scheduleDate, data.period!);
             }
         }
 
@@ -606,9 +603,45 @@ export const neuteringService = {
         });
     },
 
-    /* helpers */
+    /* helpers and neutering quota related services */
 
-    async checkSlotAvailability(date: Date, period: string, limit: number) {
+    async getDailyQuotaLimits(date: Date) {
+        const dayException = await prisma.neuteringDayException.findUnique({
+            where: { date: date }
+        });
+    
+        if (dayException) {
+            return { MORNING: dayException.morningLimit, AFTERNOON: dayException.afternoonLimit };
+        }
+    
+        const month = date.getUTCMonth() + 1;
+        const year = date.getUTCFullYear();
+        
+        const monthQuota = await prisma.neuteringMonthQuota.findUnique({
+            where: { month_year: { month, year } }
+        });
+    
+        if (!monthQuota) {
+            return { MORNING: 0, AFTERNOON: 0 };
+        }
+    
+        const dayOfWeek = date.getUTCDay();
+        const isFriday = dayOfWeek === 5;
+    
+        return {
+            MORNING: isFriday ? monthQuota.fridayMorningLimit : monthQuota.weekdayMorningLimit,
+            AFTERNOON: isFriday ? monthQuota.fridayAfternoonLimit : monthQuota.weekdayAfternoonLimit
+        };
+    },
+
+    async checkSlotAvailability(date: Date, period: string) {
+        const limits = await this.getDailyQuotaLimits(date);
+        const limitForPeriod = period === "MORNING" ? limits.MORNING : limits.AFTERNOON;
+    
+        if (limitForPeriod === 0) {
+            throw new HTTPException(400, { message: "No more slots available for this date and period" });
+        }
+    
         const count = await prisma.neuteringAppointment.count({
             where: {
                 scheduleDate: date,
@@ -616,49 +649,55 @@ export const neuteringService = {
                 status: { in: ["PENDING", "CONFIRMED", "AWAITING_EXAMS", "COMPLETED"] }
             }
         });
-
-        if (count >= limit) {
+    
+        if (count >= limitForPeriod) {
             throw new HTTPException(400, { message: "No more slots available for this date and period" });
         }
     },
 
-    /* neutering quota related services */
-
-    async getQuotas() {
-        let config = await prisma.neuteringConfig.findUnique({ where: { id: 1 } });
+    async getQuotas(month: number, year: number) {
+        const config = await prisma.neuteringMonthQuota.findUnique({ 
+            where: { month_year: { month, year } } 
+        });
         
-        if (!config) {
-            config = await prisma.neuteringConfig.create({ data: { id: 1 } });
-        }
+        const limits = config || {
+            weekdayMorningLimit: 0,
+            weekdayAfternoonLimit: 0,
+            fridayMorningLimit: 0,
+            fridayAfternoonLimit: 0,
+        };
 
+        const startOfMonth = new Date(Date.UTC(year, month - 1, 1));
+        const endOfMonth = new Date(Date.UTC(year, month, 0));
+        
+        const exceptionsList = await prisma.neuteringDayException.findMany({
+            where: { date: { gte: startOfMonth, lte: endOfMonth } }
+        });
+    
         return {
             WEEKDAY: {
-                MORNING: { species: "CAT", limit: config.weekdayMorningLimit },
-                AFTERNOON: { species: "DOG", limit: config.weekdayAfternoonLimit },
+                MORNING: { species: "CAT", limit: limits.weekdayMorningLimit },
+                AFTERNOON: { species: "DOG", limit: limits.weekdayAfternoonLimit },
             },
             FRIDAY: {
-                MORNING: { species: "CAT", gender: "MALE", limit: config.fridayMorningLimit },
-                AFTERNOON: { species: "DOG", gender: "MALE", limit: config.fridayAfternoonLimit },
-            }
+                MORNING: { species: "CAT", gender: "MALE", limit: limits.fridayMorningLimit },
+                AFTERNOON: { species: "DOG", gender: "MALE", limit: limits.fridayAfternoonLimit },
+            },
+            EXCEPTIONS: exceptionsList.map(ex => ({
+                date: ex.date.toISOString().split('T')[0], // e.g., "2026-07-07"
+                morningLimit: ex.morningLimit,
+                afternoonLimit: ex.afternoonLimit
+            }))
         };
     },
 
-    async updateLimits(userId: string, data: UpdateNeuteringLimitsInput) {
-        const user = await prisma.user.findUnique({ 
-            where: { id: userId } 
-        });
-
-        if (!user || user.role !== "ADMIN") {
-            throw new HTTPException(403, { message:  "You do not have permission to perform this action" });
-        }
-
-        return await prisma.neuteringConfig.upsert({
-            where: { 
-                id: 1 
-            },
+    async upsertMonthQuota(userId: string, data: UpsertMonthQuotaInput) {
+        return await prisma.neuteringMonthQuota.upsert({
+            where: { month_year: { month: data.month, year: data.year } },
             update: data,
             create: {
-                id: 1,
+                month: data.month,
+                year: data.year,
                 weekdayMorningLimit: data.weekdayMorningLimit ?? 12,
                 weekdayAfternoonLimit: data.weekdayAfternoonLimit ?? 6,
                 fridayMorningLimit: data.fridayMorningLimit ?? 20,
@@ -667,31 +706,70 @@ export const neuteringService = {
         });
     },
     
-    async getCalendarCounts(startDate: Date, endDate: Date) {
-        const NEUTERING_QUOTAS = await this.getQuotas();
+    async upsertDayException(userId: string, data: UpsertDayExceptionInput) {
+        return await prisma.neuteringDayException.upsert({
+            where: { date: data.date },
+            update: {
+                morningLimit: data.morningLimit,
+                afternoonLimit: data.afternoonLimit
+            },
+            create: {
+                date: data.date,
+                morningLimit: data.morningLimit,
+                afternoonLimit: data.afternoonLimit
+            }
+        });
+    },
 
+    async getCalendarCounts(startDate: Date, endDate: Date) {
+        // 1. Fetch appointments count (1 query)
         const counts = await prisma.neuteringAppointment.groupBy({
             by: ['scheduleDate', 'period'],
-            _count: {
-                id: true
-            },
+            _count: { id: true },
             where: {
-                scheduleDate: {
-                    gte: startDate,
-                    lte: endDate
-                },
+                scheduleDate: { gte: startDate, lte: endDate },
                 status: { in: ["PENDING", "CONFIRMED", "AWAITING_EXAMS", "COMPLETED"] },
                 period: { not: null }
             }
         });
 
-        /* map all ocuped days */
+        // 2. Pre-fetch all day exceptions for the whole range (1 query)
+        const dayExceptionsList = await prisma.neuteringDayException.findMany({
+            where: { date: { gte: startDate, lte: endDate } }
+        });
+        
+        // Convert array to a fast dictionary for O(1) lookup
+        const dayExceptions = dayExceptionsList.reduce((acc, curr) => {
+            acc[curr.date.toISOString().split('T')[0]] = curr;
+            return acc;
+        }, {} as Record<string, { morningLimit: number; afternoonLimit: number }>);
+
+        // 3. Pre-fetch monthly quotas for the range (1 query)
+        const startMonth = startDate.getUTCMonth() + 1;
+        const startYear = startDate.getUTCFullYear();
+        const endMonth = endDate.getUTCMonth() + 1;
+        const endYear = endDate.getUTCFullYear();
+
+        const monthQuotasList = await prisma.neuteringMonthQuota.findMany({
+            where: {
+                OR: [
+                    { month: startMonth, year: startYear },
+                    { month: endMonth, year: endYear }
+                ]
+            }
+        });
+
+        // Convert array to dictionary (e.g., key "2024-5")
+        const monthQuotas = monthQuotasList.reduce((acc, curr) => {
+            acc[`${curr.year}-${curr.month}`] = curr;
+            return acc;
+        }, {} as Record<string, any>);
+
+        // Map filled slots
         const filledSlots = counts.reduce((acc, curr) => {
             if (!curr.scheduleDate || !curr.period) return acc;
-            
             const dateStr = curr.scheduleDate.toISOString().split('T')[0];
             if (!acc[dateStr]) acc[dateStr] = { MORNING: 0, AFTERNOON: 0 };
-            
             acc[dateStr][curr.period] = curr._count.id;
             return acc;
         }, {} as Record<string, Record<string, number>>);
@@ -699,27 +777,46 @@ export const neuteringService = {
         const calendarData: Record<string, { MORNING: number; AFTERNOON: number }> = {};
         let currentDate = new Date(startDate);
 
+        // Loop through days entirely in memory (Zero DB calls here!)
         while (currentDate <= endDate) {
             const dateStr = currentDate.toISOString().split('T')[0];
             const dayOfWeek = currentDate.getUTCDay();
+            const monthKey = `${currentDate.getUTCFullYear()}-${currentDate.getUTCMonth() + 1}`;
 
             if (dayOfWeek === 0 || dayOfWeek === 6) {
                 calendarData[dateStr] = { MORNING: 0, AFTERNOON: 0 };
             } else {
-                const isFriday = dayOfWeek === 5;
-                const dailyQuota = isFriday ? NEUTERING_QUOTAS.FRIDAY : NEUTERING_QUOTAS.WEEKDAY;
+                let dailyLimit = { MORNING: 0, AFTERNOON: 0 };
+                
+                // Check dictionary for day exception
+                if (dayExceptions[dateStr]) {
+                    dailyLimit = { 
+                        MORNING: dayExceptions[dateStr].morningLimit, 
+                        AFTERNOON: dayExceptions[dateStr].afternoonLimit 
+                    };
+                } else {
+                    // Fallback to dictionary for month quota
+                    const monthQuota = monthQuotas[monthKey];
+                    if (monthQuota) {
+                        const isFriday = dayOfWeek === 5;
+                        dailyLimit = {
+                            MORNING: isFriday ? monthQuota.fridayMorningLimit : monthQuota.weekdayMorningLimit,
+                            AFTERNOON: isFriday ? monthQuota.fridayAfternoonLimit : monthQuota.weekdayAfternoonLimit
+                        };
+                    }
+                }
 
                 const filledMorning = filledSlots[dateStr]?.MORNING || 0;
                 const filledAfternoon = filledSlots[dateStr]?.AFTERNOON || 0;
 
                 calendarData[dateStr] = {
-                    MORNING: Math.max(0, dailyQuota.MORNING.limit - filledMorning),
-                    AFTERNOON: Math.max(0, dailyQuota.AFTERNOON.limit - filledAfternoon)
+                    MORNING: Math.max(0, dailyLimit.MORNING - filledMorning),
+                    AFTERNOON: Math.max(0, dailyLimit.AFTERNOON - filledAfternoon)
                 };
             }
             currentDate.setUTCDate(currentDate.getUTCDate() + 1);
         }
 
         return calendarData;
-    },
+    }
 };

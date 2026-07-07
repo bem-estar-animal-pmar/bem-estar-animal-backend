@@ -3,7 +3,16 @@ import { authMiddleware, type AuthEnv } from '../../middleware/authHandler';
 import { termsMiddleware } from '../../middleware/termsHandler';
 import { HTTPException } from 'hono/http-exception';
 import { neuteringService } from "./neuterings.service";
-import { createNeuteringSchema, adminCreateNeuteringSchema, listNeuteringsQuerySchema, updateNeuteringStatusSchema, calendarQuerySchema, updateNeuteringLimitsSchema } from './neuterings.schema';
+import { 
+    createNeuteringSchema, 
+    adminCreateNeuteringSchema, 
+    listNeuteringsQuerySchema, 
+    updateNeuteringStatusSchema, 
+    calendarQuerySchema, 
+    upsertMonthQuotaSchema,
+    upsertDayExceptionSchema,
+    getQuotasQuerySchema
+} from './neuterings.schema';
 import { strictRateLimiter } from '../../middleware/limitHandler';
 
 const app = new Hono<AuthEnv>();
@@ -146,22 +155,54 @@ app.get('/calendar', strictRateLimiter(60 * 1000, 30), async (ctx) => {
     return ctx.json(calendarData, 200);
 });
 
-app.patch('/quotas', strictRateLimiter(60 * 1000, 5), async (ctx) => {
+app.put('/quotas/month', strictRateLimiter(60 * 1000, 10), async (ctx) => {
     const user = ctx.get("user")!;
+    if (user.role !== "ADMIN" && user.role !== "MANAGER") {
+        throw new HTTPException(403, { message: "Permission denied" });
+    }
+
     const body = await ctx.req.json();
-    const validation = updateNeuteringLimitsSchema.safeParse(body);
+    const validation = upsertMonthQuotaSchema.safeParse(body);
 
     if (!validation.success) {
         throw new HTTPException(400, { message: "Invalid body", cause: validation.error });
     }
 
-    const updated = await neuteringService.updateLimits(user.id, validation.data);
-    return ctx.json({ data: updated, message: "Quotas updated successfully" }, 200);
+    const updated = await neuteringService.upsertMonthQuota(user.id, validation.data);
+    return ctx.json({ data: updated, message: "Monthly quotas updated" }, 200);
+});
+
+app.put('/quotas/day', strictRateLimiter(60 * 1000, 10), async (ctx) => {
+    const user = ctx.get("user")!;
+    if (user.role !== "ADMIN" && user.role !== "MANAGER") {
+        throw new HTTPException(403, { message: "Permission denied" });
+    }
+
+    const body = await ctx.req.json();
+    const validation = upsertDayExceptionSchema.safeParse(body);
+
+    if (!validation.success) {
+        throw new HTTPException(400, { message: "Invalid body", cause: validation.error });
+    }
+
+    const updated = await neuteringService.upsertDayException(user.id, validation.data);
+    return ctx.json({ data: updated, message: "Day exception updated successfully" }, 200);
 });
 
 
 app.get('/quotas', strictRateLimiter(60 * 1000, 60), async (ctx) => {
-    const quotas = await neuteringService.getQuotas();
+    const rawQuery = ctx.req.query();
+    const validation = getQuotasQuerySchema.safeParse(rawQuery);
+
+    if (!validation.success) {
+        throw new HTTPException(400, { message: "Invalid query parameters", cause: validation.error });
+    }
+
+    const quotas = await neuteringService.getQuotas(
+        validation.data.month, 
+        validation.data.year
+    );
+    
     return ctx.json(quotas, 200);
 });
 

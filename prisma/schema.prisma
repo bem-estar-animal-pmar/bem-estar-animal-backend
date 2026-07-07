@@ -408,11 +408,21 @@ model AdoptionRequest {
   createdAt     DateTime      @default(now())
 }
 
-model NeuteringConfig {
-  id                    Int @id @default(1)
-  weekdayMorningLimit   Int @default(12)
-  weekdayAfternoonLimit Int @default(6)
-  fridayMorningLimit    Int @default(20)
-  fridayAfternoonLimit  Int @default(7)
-  updatedAt             DateTime @updatedAt
+model NeuteringMonthQuota {
+  id                    Int      @id @default(autoincrement())
+  month                 Int      // 1-12
+  year                  Int
+  weekdayMorningLimit   Int      @default(12)
+  weekdayAfternoonLimit Int      @default(6)
+  fridayMorningLimit    Int      @default(20)
+  fridayAfternoonLimit  Int      @default(7)
+
+  @@unique([month, year])
+}
+
+model NeuteringDayException {
+  id               Int      @id @default(autoincrement())
+  date             DateTime @unique // Stored as UTC 00:00:00
+  morningLimit     Int      @default(0) // 0 means blocked/exception
+  afternoonLimit   Int      @default(0)
 }

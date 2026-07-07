@@ -64,7 +64,7 @@ export const listNeuteringsQuerySchema = z.object({
         )
     ).optional(),
     petId: z.string().optional(),
-    userId: z.string().optional(), // Apenas Admin
+    userId: z.string().optional(),
     startDate: z.coerce.date().optional(),
     endDate: z.coerce.date().optional(),
     page: z.coerce.number().int().min(1).default(1),
@@ -78,17 +78,34 @@ export const calendarQuerySchema = z.object({
         .transform(date => new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))),
 });
 
-export type CreateNeuteringInput = z.infer<typeof createNeuteringSchema>;
-export type AdminCreateNeuteringInput = z.infer<typeof adminCreateNeuteringSchema>;
-export type UpdateNeuteringStatusInput = z.infer<typeof updateNeuteringStatusSchema>;
-export type ListNeuteringsQueryInput = z.infer<typeof listNeuteringsQuerySchema>;
-export type calendarQueryInput = z.infer<typeof calendarQuerySchema>;
-
-export const updateNeuteringLimitsSchema = z.object({
+export const upsertMonthQuotaSchema = z.object({
+    month: z.coerce.number().int().min(1).max(12),
+    year: z.coerce.number().int().min(2024),
     weekdayMorningLimit: z.coerce.number().int().min(0).optional(),
     weekdayAfternoonLimit: z.coerce.number().int().min(0).optional(),
     fridayMorningLimit: z.coerce.number().int().min(0).optional(),
     fridayAfternoonLimit: z.coerce.number().int().min(0).optional(),
 });
 
-export type UpdateNeuteringLimitsInput = z.infer<typeof updateNeuteringLimitsSchema>;
+export const upsertDayExceptionSchema = z.object({
+    date: z.coerce.date()
+        .transform(date => new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))),
+    morningLimit: z.coerce.number().int().min(0),
+    afternoonLimit: z.coerce.number().int().min(0),
+});
+
+export const getQuotasQuerySchema = z.object({
+    month: z.coerce.number().int().min(1).max(12)
+        .default(() => new Date().getUTCMonth() + 1),
+    year: z.coerce.number().int().min(2024)
+        .default(() => new Date().getUTCFullYear()),
+});
+
+export type CreateNeuteringInput = z.infer<typeof createNeuteringSchema>;
+export type AdminCreateNeuteringInput = z.infer<typeof adminCreateNeuteringSchema>;
+export type UpdateNeuteringStatusInput = z.infer<typeof updateNeuteringStatusSchema>;
+export type ListNeuteringsQueryInput = z.infer<typeof listNeuteringsQuerySchema>;
+export type calendarQueryInput = z.infer<typeof calendarQuerySchema>;
+export type UpsertMonthQuotaInput = z.infer<typeof upsertMonthQuotaSchema>;
+export type UpsertDayExceptionInput = z.infer<typeof upsertDayExceptionSchema>;
+export type GetQuotasQueryInput = z.infer<typeof getQuotasQuerySchema>;
