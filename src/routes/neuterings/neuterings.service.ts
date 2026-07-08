@@ -603,7 +603,7 @@ export const neuteringService = {
         });
     },
 
-    /* helpers and neutering quota related services */
+    /* neutering quota related services and helpers */
 
     async getDailyQuotaLimits(date: Date) {
         const dayException = await prisma.neuteringDayException.findUnique({
@@ -655,7 +655,11 @@ export const neuteringService = {
         }
     },
 
-    async getQuotas(month: number, year: number) {
+    async getQuotas(userRole: string, month: number, year: number) {
+        if (userRole !== "ADMIN" && userRole !== "MANAGER") {
+            throw new HTTPException(403, { message:  "You do not have permission to perform this action" });
+        }
+
         const config = await prisma.neuteringMonthQuota.findUnique({ 
             where: { month_year: { month, year } } 
         });
@@ -684,14 +688,18 @@ export const neuteringService = {
                 AFTERNOON: { species: "DOG", gender: "MALE", limit: limits.fridayAfternoonLimit },
             },
             EXCEPTIONS: exceptionsList.map(ex => ({
-                date: ex.date.toISOString().split('T')[0], // e.g., "2026-07-07"
+                date: ex.date.toISOString().split('T')[0],
                 morningLimit: ex.morningLimit,
                 afternoonLimit: ex.afternoonLimit
             }))
         };
     },
 
-    async upsertMonthQuota(userId: string, data: UpsertMonthQuotaInput) {
+    async upsertMonthQuota(userRole: string, data: UpsertMonthQuotaInput) {
+        if (userRole !== "ADMIN") {
+            throw new HTTPException(403, { message:  "You do not have permission to perform this action" });
+        }
+
         return await prisma.neuteringMonthQuota.upsert({
             where: { month_year: { month: data.month, year: data.year } },
             update: data,
@@ -706,7 +714,11 @@ export const neuteringService = {
         });
     },
     
-    async upsertDayException(userId: string, data: UpsertDayExceptionInput) {
+    async upsertDayException(userRole: string, data: UpsertDayExceptionInput) {
+        if (userRole !== "ADMIN") {
+            throw new HTTPException(403, { message:  "You do not have permission to perform this action" });
+        }
+
         return await prisma.neuteringDayException.upsert({
             where: { date: data.date },
             update: {
@@ -721,8 +733,8 @@ export const neuteringService = {
         });
     },
 
+    /* this returns -1 for every day that has not a quota or a exception set */
     async getCalendarCounts(startDate: Date, endDate: Date) {
-        // 1. Fetch appointments count (1 query)
         const counts = await prisma.neuteringAppointment.groupBy({
             by: ['scheduleDate', 'period'],
             _count: { id: true },
@@ -733,18 +745,15 @@ export const neuteringService = {
             }
         });
 
-        // 2. Pre-fetch all day exceptions for the whole range (1 query)
         const dayExceptionsList = await prisma.neuteringDayException.findMany({
             where: { date: { gte: startDate, lte: endDate } }
         });
         
-        // Convert array to a fast dictionary for O(1) lookup
         const dayExceptions = dayExceptionsList.reduce((acc, curr) => {
             acc[curr.date.toISOString().split('T')[0]] = curr;
             return acc;
         }, {} as Record<string, { morningLimit: number; afternoonLimit: number }>);
 
-        // 3. Pre-fetch monthly quotas for the range (1 query)
         const startMonth = startDate.getUTCMonth() + 1;
         const startYear = startDate.getUTCFullYear();
         const endMonth = endDate.getUTCMonth() + 1;
@@ -759,13 +768,11 @@ export const neuteringService = {
             }
         });
 
-        // Convert array to dictionary (e.g., key "2024-5")
         const monthQuotas = monthQuotasList.reduce((acc, curr) => {
             acc[`${curr.year}-${curr.month}`] = curr;
             return acc;
         }, {} as Record<string, any>);
 
-        // Map filled slots
         const filledSlots = counts.reduce((acc, curr) => {
             if (!curr.scheduleDate || !curr.period) return acc;
             const dateStr = curr.scheduleDate.toISOString().split('T')[0];
@@ -777,33 +784,39 @@ export const neuteringService = {
         const calendarData: Record<string, { MORNING: number; AFTERNOON: number }> = {};
         let currentDate = new Date(startDate);
 
-        // Loop through days entirely in memory (Zero DB calls here!)
+        /* loop trough month days only in memory, db optimization */
         while (currentDate <= endDate) {
             const dateStr = currentDate.toISOString().split('T')[0];
             const dayOfWeek = currentDate.getUTCDay();
             const monthKey = `${currentDate.getUTCFullYear()}-${currentDate.getUTCMonth() + 1}`;
 
-            if (dayOfWeek === 0 || dayOfWeek === 6) {
-                calendarData[dateStr] = { MORNING: 0, AFTERNOON: 0 };
-            } else {
+            const hasDayException = !!dayExceptions[dateStr];
+            const hasMonthQuota = !!monthQuotas[monthKey];
+
+            /* if there is no monthly quota or expection, returns -1 */
+            if (!hasMonthQuota && !hasDayException) {
+                calendarData[dateStr] = { MORNING: -1, AFTERNOON: -1 };
+            } 
+            
+            else if ((dayOfWeek === 0 || dayOfWeek === 6) && !hasDayException) {
+                calendarData[dateStr] = { MORNING: -1, AFTERNOON: -1 }; /* returns -1 on weekends if no expection is set */
+            } 
+            
+            else {
                 let dailyLimit = { MORNING: 0, AFTERNOON: 0 };
                 
-                // Check dictionary for day exception
-                if (dayExceptions[dateStr]) {
+                if (hasDayException) {
                     dailyLimit = { 
                         MORNING: dayExceptions[dateStr].morningLimit, 
                         AFTERNOON: dayExceptions[dateStr].afternoonLimit 
                     };
                 } else {
-                    // Fallback to dictionary for month quota
                     const monthQuota = monthQuotas[monthKey];
-                    if (monthQuota) {
-                        const isFriday = dayOfWeek === 5;
-                        dailyLimit = {
-                            MORNING: isFriday ? monthQuota.fridayMorningLimit : monthQuota.weekdayMorningLimit,
-                            AFTERNOON: isFriday ? monthQuota.fridayAfternoonLimit : monthQuota.weekdayAfternoonLimit
-                        };
-                    }
+                    const isFriday = dayOfWeek === 5;
+                    dailyLimit = {
+                        MORNING: isFriday ? monthQuota.fridayMorningLimit : monthQuota.weekdayMorningLimit,
+                        AFTERNOON: isFriday ? monthQuota.fridayAfternoonLimit : monthQuota.weekdayAfternoonLimit
+                    };
                 }
 
                 const filledMorning = filledSlots[dateStr]?.MORNING || 0;
@@ -815,7 +828,7 @@ export const neuteringService = {
                 };
             }
             currentDate.setUTCDate(currentDate.getUTCDate() + 1);
-        }
+        }   
 
         return calendarData;
     }

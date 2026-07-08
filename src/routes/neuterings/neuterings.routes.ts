@@ -138,8 +138,6 @@ app.patch('/cancel/:id', strictRateLimiter(60 * 1000, 5), async (ctx) => {
    @route GET /api/neutering/calendar?startDate=2026-05-01&endDate=2026-05-31
    @access private (USER, ADMIN) */
 app.get('/calendar', strictRateLimiter(60 * 1000, 30), async (ctx) => {
-    const user = ctx.get("user")!;
-
     const rawQuery = ctx.req.query();
     const validation = calendarQuerySchema.safeParse(rawQuery);
 
@@ -155,11 +153,12 @@ app.get('/calendar', strictRateLimiter(60 * 1000, 30), async (ctx) => {
     return ctx.json(calendarData, 200);
 });
 
+/* @desc update monthly quotas by admin
+   @route PUT /api/neutering/quotas/month
+   @access private (ADMIN) */
 app.put('/quotas/month', strictRateLimiter(60 * 1000, 10), async (ctx) => {
     const user = ctx.get("user")!;
-    if (user.role !== "ADMIN" && user.role !== "MANAGER") {
-        throw new HTTPException(403, { message: "Permission denied" });
-    }
+    const role = user.role ?? "USER";
 
     const body = await ctx.req.json();
     const validation = upsertMonthQuotaSchema.safeParse(body);
@@ -168,15 +167,16 @@ app.put('/quotas/month', strictRateLimiter(60 * 1000, 10), async (ctx) => {
         throw new HTTPException(400, { message: "Invalid body", cause: validation.error });
     }
 
-    const updated = await neuteringService.upsertMonthQuota(user.id, validation.data);
+    const updated = await neuteringService.upsertMonthQuota(role, validation.data);
     return ctx.json({ data: updated, message: "Monthly quotas updated" }, 200);
 });
 
+/* @desc update daily quotas exception by admin
+   @route PUT /api/neutering/quotas/day
+   @access private (ADMIN) */
 app.put('/quotas/day', strictRateLimiter(60 * 1000, 10), async (ctx) => {
     const user = ctx.get("user")!;
-    if (user.role !== "ADMIN" && user.role !== "MANAGER") {
-        throw new HTTPException(403, { message: "Permission denied" });
-    }
+    const role = user.role ?? "USER";
 
     const body = await ctx.req.json();
     const validation = upsertDayExceptionSchema.safeParse(body);
@@ -185,12 +185,17 @@ app.put('/quotas/day', strictRateLimiter(60 * 1000, 10), async (ctx) => {
         throw new HTTPException(400, { message: "Invalid body", cause: validation.error });
     }
 
-    const updated = await neuteringService.upsertDayException(user.id, validation.data);
+    const updated = await neuteringService.upsertDayException(role, validation.data);
     return ctx.json({ data: updated, message: "Day exception updated successfully" }, 200);
 });
 
-
+/* @desc get specific quota notation (admin only)
+   @route PUT /api/neutering/quotas
+   @access private (ADMIN, MANAGER) */
 app.get('/quotas', strictRateLimiter(60 * 1000, 60), async (ctx) => {
+    const user = ctx.get("user")!;
+    const role = user.role ?? "USER";
+
     const rawQuery = ctx.req.query();
     const validation = getQuotasQuerySchema.safeParse(rawQuery);
 
@@ -198,11 +203,7 @@ app.get('/quotas', strictRateLimiter(60 * 1000, 60), async (ctx) => {
         throw new HTTPException(400, { message: "Invalid query parameters", cause: validation.error });
     }
 
-    const quotas = await neuteringService.getQuotas(
-        validation.data.month, 
-        validation.data.year
-    );
-    
+    const quotas = await neuteringService.getQuotas(role, validation.data.month, validation.data.year);
     return ctx.json(quotas, 200);
 });
 
